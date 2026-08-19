@@ -25,15 +25,7 @@ jobs:
       run: brew install xcodegen || brew upgrade xcodegen || true
 
     - name: Generate Xcode Project
-      run: |
-        xcodegen generate > error_log.txt 2>&1 || (
-          git config --global user.name "CI Bot"
-          git config --global user.email "ci@example.com"
-          git add error_log.txt
-          git commit -m "Upload xcodegen error log"
-          git push origin HEAD:main
-          exit 1
-        )
+      run: xcodegen generate
 
     - name: Build and Test
       run: |
@@ -42,11 +34,4 @@ jobs:
           -scheme OurCanvas \
           -destination 'platform=iOS Simulator,name=iPhone 16 Pro,OS=latest' \
           -enableCodeCoverage YES \
-          CODE_SIGNING_ALLOWED=NO > build_log.txt 2>&1 || (
-          git config --global user.name "CI Bot"
-          git config --global user.email "ci@example.com"
-          git add build_log.txt
-          git commit -m "Upload xcodebuild error log"
-          git push origin HEAD:main
-          exit 1
-        )
+          CODE_SIGNING_ALLOWED=NO
