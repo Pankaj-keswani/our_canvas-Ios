@@ -1,0 +1,89 @@
+name: OurCanvas
+options:
+  bundleIdPrefix: com.aapka.prempatra
+  deploymentTarget:
+    iOS: "16.0"
+
+packages:
+  Firebase:
+    url: https://github.com/firebase/firebase-ios-sdk.git
+    from: 10.23.0
+
+targets:
+  OurCanvas:
+    type: application
+    platform: iOS
+    sources:
+      - path: OurCanvas
+    info:
+      path: OurCanvas/Info.plist
+      properties:
+        UILaunchStoryboardName: LaunchScreen
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+          UISceneConfigurations: {}
+        NSCameraUsageDescription: "Needed for taking profile pictures."
+        NSPhotoLibraryUsageDescription: "Needed for selecting profile pictures."
+        UIBackgroundModes:
+          - remote-notification
+    entitlements:
+      path: OurCanvas/OurCanvas.entitlements
+    dependencies:
+      - package: Firebase
+        product: FirebaseCore
+      - package: Firebase
+        product: FirebaseAuth
+      - package: Firebase
+        product: FirebaseFirestore
+      - package: Firebase
+        product: FirebaseFirestoreSwift
+      - package: Firebase
+        product: FirebaseStorage
+      - package: Firebase
+        product: FirebaseFunctions
+      - package: Firebase
+        product: FirebaseMessaging
+      - target: OurCanvasWidget
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.aapka.prempatra
+        MARKETING_VERSION: 1.0.0
+        CURRENT_PROJECT_VERSION: 1
+        DEVELOPMENT_TEAM: "" # To be filled by user
+        CODE_SIGN_STYLE: Automatic
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+
+  OurCanvasWidget:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: OurCanvasWidget
+      - path: OurCanvas/GoogleService-Info.plist
+        type: file
+    info:
+      path: OurCanvasWidget/Info.plist
+      properties:
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    entitlements:
+      path: OurCanvasWidget/OurCanvasWidget.entitlements
+    dependencies:
+      - package: Firebase
+        product: FirebaseCore
+      - package: Firebase
+        product: FirebaseFirestore
+      - package: Firebase
+        product: FirebaseAuth
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.aapka.prempatra.widget
+        DEVELOPMENT_TEAM: ""
+        CODE_SIGN_STYLE: Automatic
+
+  OurCanvasTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: Tests/OurCanvasTests
+    dependencies:
+      - target: OurCanvas

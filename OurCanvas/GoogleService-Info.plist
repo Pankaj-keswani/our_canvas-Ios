@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CLIENT_ID</key>
+	<string>102366474445-kp02urkc2me669tqf04qvkunprjd6qr4.apps.googleusercontent.com</string>
+	<key>REVERSED_CLIENT_ID</key>
+	<string>com.googleusercontent.apps.102366474445-kp02urkc2me669tqf04qvkunprjd6qr4</string>
+	<key>ANDROID_CLIENT_ID</key>
+	<string>102366474445-i8bst71j5u46silpvjhhupo9lbgfg719.apps.googleusercontent.com</string>
+	<key>API_KEY</key>
+	<string>AIzaSyBSZDozRj5hqWJLVRpJa6xo6V1R3ZF2EUQ</string>
+	<key>GCM_SENDER_ID</key>
+	<string>102366474445</string>
+	<key>PLIST_VERSION</key>
+	<string>1</string>
+	<key>BUNDLE_ID</key>
+	<string>com.aapka.prempatra</string>
+	<key>PROJECT_ID</key>
+	<string>prempatra-c91fd</string>
+	<key>STORAGE_BUCKET</key>
+	<string>prempatra-c91fd.firebasestorage.app</string>
+	<key>IS_ADS_ENABLED</key>
+	<false></false>
+	<key>IS_ANALYTICS_ENABLED</key>
+	<false></false>
+	<key>IS_APPINVITE_ENABLED</key>
+	<true></true>
+	<key>IS_GCM_ENABLED</key>
+	<true></true>
+	<key>IS_SIGNIN_ENABLED</key>
+	<true></true>
+	<key>GOOGLE_APP_ID</key>
+	<string>1:102366474445:ios:556acfbac06a22b95cf984</string>
+	<key>DATABASE_URL</key>
+	<string>https://prempatra-c91fd-default-rtdb.asia-southeast1.firebasedatabase.app</string>
+</dict>
+</plist>
