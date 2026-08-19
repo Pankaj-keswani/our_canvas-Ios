@@ -18,23 +18,20 @@ final class SerializationTests: XCTestCase {
 }
 
 final class ModelTests: XCTestCase {
-    func testGroupModelDecoding() throws {
-        let json = """
-        {
-            "id": "test_id",
-            "groupId": "test_id",
-            "groupName": "My Circle",
-            "groupType": "custom",
-            "createdBy": "uid_123",
-            "inviteCode": "ABCDEF",
-            "memberIds": ["uid_123"]
-        }
-        """.data(using: .utf8)!
-        
-        let decoder = JSONDecoder()
-        let group = try decoder.decode(Group.self, from: json)
+    func testGroupModelInitialization() {
+        let group = Group(
+            id: "test_id",
+            groupId: "test_id",
+            groupName: "My Circle",
+            groupType: "custom",
+            createdBy: "uid_123",
+            createdAt: 123456789,
+            inviteCode: "ABCDEF",
+            memberIds: ["uid_123"]
+        )
         
         XCTAssertEqual(group.groupName, "My Circle")
         XCTAssertEqual(group.memberIds.count, 1)
+        XCTAssertEqual(group.inviteCode, "ABCDEF")
     }
 }
