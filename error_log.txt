@@ -1,1 +1,0 @@
-/Users/runner/work/_temp/71ad72e4-4841-4275-9cf8-2f2468337117.sh: line 1: mint: command not found

@@ -1,8 +1,8 @@
 import WidgetKit
 import SwiftUI
 import FirebaseCore
-import FirebaseFirestore
 import FirebaseAuth
+import FirebaseFirestore
 
 struct Provider: TimelineProvider {
     func placeholder(in context: Context) -> SimpleEntry {
