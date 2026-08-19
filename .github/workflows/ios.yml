@@ -15,6 +15,12 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
+    - name: Select Xcode 16
+      run: |
+        XCODE16_PATH=$(ls -d /Applications/Xcode_16*.app | head -n 1)
+        echo "Using $XCODE16_PATH"
+        sudo xcode-select -s "$XCODE16_PATH/Contents/Developer"
+
     - name: Install XcodeGen
       run: brew install xcodegen || brew upgrade xcodegen || true
 
