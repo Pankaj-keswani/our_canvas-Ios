@@ -22,7 +22,14 @@ jobs:
 
     - name: Generate Xcode Project
       run: |
-        ./xcodegen/bin/xcodegen generate
+        ./xcodegen/bin/xcodegen generate > error_log.txt 2>&1 || (
+          git config --global user.name "CI Bot"
+          git config --global user.email "ci@example.com"
+          git add error_log.txt
+          git commit -m "Upload xcodegen error log"
+          git push origin HEAD:main
+          exit 1
+        )
 
     - name: Build and Test
       run: |
