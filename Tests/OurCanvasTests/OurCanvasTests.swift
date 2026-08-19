@@ -21,6 +21,7 @@ final class ModelTests: XCTestCase {
     func testGroupModelDecoding() throws {
         let json = """
         {
+            "id": "test_id",
             "groupId": "test_id",
             "groupName": "My Circle",
             "groupType": "custom",
