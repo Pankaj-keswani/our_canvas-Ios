@@ -1,0 +1,14 @@
+Command line invocation:
+    /Applications/Xcode_15.4.app/Contents/Developer/usr/bin/xcodebuild test -project OurCanvas.xcodeproj -scheme OurCanvas -destination "platform=iOS Simulator,name=iPhone 15 Pro,OS=latest" -enableCodeCoverage YES CODE_SIGNING_ALLOWED=NO
+
+User defaults from command line:
+    IDEPackageSupportUseBuiltinSCM = YES
+
+Build settings from command line:
+    CODE_SIGNING_ALLOWED = NO
+
+2026-08-19 12:29:08.220 xcodebuild[5921:19581] Writing error result bundle to /var/folders/g3/pffjr_y96bq06blnkf72x_hw0000gn/T/ResultBundle_2026-19-08_12-29-0008.xcresult
+xcodebuild: error: Unable to read project 'OurCanvas.xcodeproj'.
+	Reason: The project ‘OurCanvas’ cannot be opened because it is in a future Xcode project file format (77). Adjust the project format using a compatible version of Xcode to allow it to be opened by this version of Xcode.
+
+
