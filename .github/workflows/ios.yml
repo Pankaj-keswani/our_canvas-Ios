@@ -15,14 +15,9 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    - name: Install XcodeGen
-      run: |
-        curl -sL https://github.com/yonaskolb/XcodeGen/releases/download/2.39.0/xcodegen.zip -o xcodegen.zip
-        unzip -q xcodegen.zip
-
     - name: Generate Xcode Project
       run: |
-        ./xcodegen/bin/xcodegen generate > error_log.txt 2>&1 || (
+        mint run yonaskolb/xcodegen generate > error_log.txt 2>&1 || (
           git config --global user.name "CI Bot"
           git config --global user.email "ci@example.com"
           git add error_log.txt
