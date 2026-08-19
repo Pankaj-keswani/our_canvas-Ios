@@ -9,6 +9,8 @@ on:
 jobs:
   build-and-test:
     runs-on: macos-14
+    permissions:
+      contents: write
 
     steps:
     - uses: actions/checkout@v4
@@ -22,7 +24,14 @@ jobs:
 
     - name: Generate Xcode Project
       run: |
-        xcodegen generate 2>&1 | tee -a $GITHUB_STEP_SUMMARY || exit 1
+        xcodegen generate > error_log.txt 2>&1 || (
+          git config --global user.name "CI Bot"
+          git config --global user.email "ci@example.com"
+          git add error_log.txt
+          git commit -m "Upload xcodegen error log"
+          git push origin HEAD:main
+          exit 1
+        )
 
     - name: Build and Test
       run: |
