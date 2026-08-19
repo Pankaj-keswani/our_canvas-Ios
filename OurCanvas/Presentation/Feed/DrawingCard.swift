@@ -1,4 +1,5 @@
 import SwiftUI
+import FirebaseAuth
 
 struct DrawingCard: View {
     let drawing: Drawing
@@ -17,7 +18,7 @@ struct DrawingCard: View {
                     .overlay(Text(String(drawing.senderId.prefix(1).uppercased())).foregroundColor(.gray))
                 
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(drawing.senderId == FirebaseAuth.Auth.auth().currentUser?.uid ? "You" : "Friend")
+                    Text(drawing.senderId == Auth.auth().currentUser?.uid ? "You" : "Friend")
                         .font(.subheadline)
                         .fontWeight(.semibold)
                     if let date = drawing.sentAt?.dateValue() {
