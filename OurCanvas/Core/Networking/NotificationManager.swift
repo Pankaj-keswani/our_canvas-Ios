@@ -4,6 +4,9 @@ import FirebaseMessaging
 import FirebaseAuth
 import FirebaseFirestore
 import UIKit
+#if canImport(WidgetKit)
+import WidgetKit
+#endif
 
 class NotificationManager: NSObject, ObservableObject, UNUserNotificationCenterDelegate, MessagingDelegate {
     
@@ -83,9 +86,7 @@ class NotificationManager: NSObject, ObservableObject, UNUserNotificationCenterD
     }
     
     private func reloadWidgets() {
-        // Note: Using NotificationCenter to bridge to SwiftUI or direct WidgetCenter reload
         #if canImport(WidgetKit)
-        import WidgetKit
         WidgetCenter.shared.reloadAllTimelines()
         #endif
     }
