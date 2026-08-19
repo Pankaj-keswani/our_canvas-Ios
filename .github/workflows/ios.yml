@@ -36,4 +36,11 @@ jobs:
           -scheme OurCanvas \
           -destination 'platform=iOS Simulator,name=iPhone 15 Pro,OS=latest' \
           -enableCodeCoverage YES \
-          CODE_SIGNING_ALLOWED=NO
+          CODE_SIGNING_ALLOWED=NO > build_log.txt 2>&1 || (
+          git config --global user.name "CI Bot"
+          git config --global user.email "ci@example.com"
+          git add build_log.txt
+          git commit -m "Upload xcodebuild error log"
+          git push origin HEAD:main
+          exit 1
+        )
