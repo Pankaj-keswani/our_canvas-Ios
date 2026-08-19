@@ -15,9 +15,12 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
+    - name: Install XcodeGen
+      run: brew install xcodegen || brew upgrade xcodegen || true
+
     - name: Generate Xcode Project
       run: |
-        mint run yonaskolb/xcodegen generate > error_log.txt 2>&1 || (
+        xcodegen generate > error_log.txt 2>&1 || (
           git config --global user.name "CI Bot"
           git config --global user.email "ci@example.com"
           git add error_log.txt
