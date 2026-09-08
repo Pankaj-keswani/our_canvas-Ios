@@ -177,7 +177,7 @@ class UserRepository: ObservableObject, UserProfileProviding {
 
     // MARK: - Test-account override (Android parity: @prempatra.com/.test/@google.com)
 
-    private func mapTestUserPlan(user: User) -> User {
+    private func mapTestUserPlan(_ user: User) -> User {
         var modified = user
         let email = user.email.lowercased()
         let isTestUser = email.hasSuffix("@prempatra.com") ||
