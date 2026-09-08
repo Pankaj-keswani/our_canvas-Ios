@@ -63,7 +63,14 @@ class NotificationManager: NSObject, ObservableObject, UNUserNotificationCenterD
     func userNotificationCenter(_ center: UNUserNotificationCenter,
                                 willPresent notification: UNNotification,
                                 withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
-        handleIncoming(userInfo: notification.request.content.userInfo, fromSystemNotification: true)
+        let userInfo = notification.request.content.userInfo
+        // Settings gate: a muted category shows nothing — no banner, no sound.
+        if let payload = PushPayload.parse(userInfo),
+           !Self.currentPreferences().isEnabled(for: payload.type) {
+            completionHandler([])
+            return
+        }
+        handleIncoming(userInfo: userInfo, fromSystemNotification: true)
         completionHandler([.banner, .sound])
     }
 
@@ -91,19 +98,34 @@ class NotificationManager: NSObject, ObservableObject, UNUserNotificationCenterD
         guard let payload = PushPayload.parse(userInfo) else { return }
 
         DispatchQueue.main.async {
-            self.persist(payload: payload)
+            // Settings gate (muted category → no banner, no history entry; the
+            // notification "doesn't come" on this device until re-enabled).
+            let preferences = Self.currentPreferences()
 
-            // FCM data-only messages never banner on their own — compose a local
-            // notification when we're in the foreground (or arriving via tap).
-            if !fromSystemNotification || UIApplication.shared.applicationState == .active {
-                self.presentLocally(payload: payload)
+            if preferences.isEnabled(for: payload.type) {
+                self.persist(payload: payload)
+
+                // FCM data-only messages never banner on their own — compose a local
+                // notification when we're in the foreground (or arriving via tap).
+                if !fromSystemNotification || UIApplication.shared.applicationState == .active {
+                    self.presentLocally(payload: payload)
+                }
             }
 
+            // Widget content refresh is not a user-facing notification — keep it.
             switch payload.type {
             case .newDrawing, .newReaction, .newGameTurn, .guessResult, .memberJoined:
                 self.reloadWidgets()
             }
         }
+    }
+
+    /// Current signed-in user's notification preferences (defaults when signed out).
+    static func currentPreferences() -> NotificationPreferences {
+        guard let uid = Auth.auth().currentUser?.uid else {
+            return NotificationPreferences()
+        }
+        return UserScopedStore(uid: uid).notificationPreferences
     }
 
     private func persist(payload: PushPayload) {

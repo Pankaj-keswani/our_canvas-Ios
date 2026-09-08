@@ -6,9 +6,71 @@ enum DiscoveryFlag: String, CaseIterable {
     case premium = "premium"
 }
 
+/// Notification preference categories exposed in Settings. Every push type maps
+/// to exactly one category; a muted category suppresses BOTH the banner and the
+/// in-app history entry for its push types on this device.
+enum NotificationCategory: String, CaseIterable {
+    case drawings
+    case reactions
+    case games
+    case other
+}
+
 struct NotificationPreferences: Codable, Equatable {
     var newDrawingEnabled: Bool = true
     var newReactionEnabled: Bool = true
+    var gameEventsEnabled: Bool = true
+    var otherEnabled: Bool = true
+
+    init() {}
+
+    init(newDrawingEnabled: Bool = true,
+         newReactionEnabled: Bool = true,
+         gameEventsEnabled: Bool = true,
+         otherEnabled: Bool = true) {
+        self.newDrawingEnabled = newDrawingEnabled
+        self.newReactionEnabled = newReactionEnabled
+        self.gameEventsEnabled = gameEventsEnabled
+        self.otherEnabled = otherEnabled
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case newDrawingEnabled
+        case newReactionEnabled
+        case gameEventsEnabled
+        case otherEnabled
+    }
+
+    /// Migration-safe decode: preferences stored by older app versions carry only
+    /// the two original keys — the new categories default to ON, and previously
+    /// saved OFF states are preserved.
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        newDrawingEnabled = try container.decodeIfPresent(Bool.self, forKey: .newDrawingEnabled) ?? true
+        newReactionEnabled = try container.decodeIfPresent(Bool.self, forKey: .newReactionEnabled) ?? true
+        gameEventsEnabled = try container.decodeIfPresent(Bool.self, forKey: .gameEventsEnabled) ?? true
+        otherEnabled = try container.decodeIfPresent(Bool.self, forKey: .otherEnabled) ?? true
+    }
+
+    /// Push type → category (pure, tested). Unknown future types land in `other`.
+    static func category(for pushType: PushPayload.PushType) -> NotificationCategory {
+        switch pushType {
+        case .newDrawing: return .drawings
+        case .newReaction: return .reactions
+        case .newGameTurn, .guessResult: return .games
+        case .memberJoined: return .other
+        }
+    }
+
+    /// The actual gate: is this push type allowed to banner/persist right now?
+    func isEnabled(for pushType: PushPayload.PushType) -> Bool {
+        switch Self.category(for: pushType) {
+        case .drawings: return newDrawingEnabled
+        case .reactions: return newReactionEnabled
+        case .games: return gameEventsEnabled
+        case .other: return otherEnabled
+        }
+    }
 }
 
 /// User-scoped local state, mirroring the Android SharedPreferences/DataStore keys

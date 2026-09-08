@@ -19,9 +19,12 @@ struct SettingsView: View {
 
     var body: some View {
         Form {
-            Section(header: Text("Notifications")) {
+            Section(header: Text("Notifications"),
+                    footer: Text("Turn a category off and its notifications stop arriving — no banner and nothing in your history — until you turn it back on. All categories are on by default.")) {
                 Toggle("New doodles", isOn: $viewModel.newDrawingEnabled)
                 Toggle("Reactions received", isOn: $viewModel.newReactionEnabled)
+                Toggle("Guess My Doodle", isOn: $viewModel.gameEventsEnabled)
+                Toggle("Other notifications", isOn: $viewModel.otherEnabled)
                 Button {
                     viewModel.fixDelayedNotifications()
                 } label: {
@@ -159,6 +162,12 @@ final class SettingsViewModel: ObservableObject {
     @Published var newReactionEnabled: Bool {
         didSet { savePreferences() }
     }
+    @Published var gameEventsEnabled: Bool {
+        didSet { savePreferences() }
+    }
+    @Published var otherEnabled: Bool {
+        didSet { savePreferences() }
+    }
     @Published var fixMessage: String?
     @Published var deleteError: String?
 
@@ -175,6 +184,8 @@ final class SettingsViewModel: ObservableObject {
         preferences = store.notificationPreferences
         newDrawingEnabled = preferences.newDrawingEnabled
         newReactionEnabled = preferences.newReactionEnabled
+        gameEventsEnabled = preferences.gameEventsEnabled
+        otherEnabled = preferences.otherEnabled
         appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
 
         UserRepository.shared.$currentUserProfile
@@ -189,6 +200,8 @@ final class SettingsViewModel: ObservableObject {
         var store = UserScopedStore(uid: Auth.auth().currentUser?.uid ?? "anonymous")
         preferences.newDrawingEnabled = newDrawingEnabled
         preferences.newReactionEnabled = newReactionEnabled
+        preferences.gameEventsEnabled = gameEventsEnabled
+        preferences.otherEnabled = otherEnabled
         store.notificationPreferences = preferences
     }
 
