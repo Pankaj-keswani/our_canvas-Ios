@@ -345,7 +345,7 @@ final class GuessOutcomeTests: XCTestCase {
     }
 
     func testGiveUpRevealsWordOnlyToThisUser() {
-        let result = JudgeResult(gaveUp: true, word: "cat")
+        let result = JudgeResult(word: "cat", gaveUp: true)
         XCTAssertEqual(GuessOutcomeAction.action(for: result), .revealed(word: "cat"))
     }
 
