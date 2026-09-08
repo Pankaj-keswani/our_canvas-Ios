@@ -118,12 +118,13 @@ final class OfflineQueueTests: XCTestCase {
 
         let sender = RecordingSender()
         let service = OfflineQueueService(store: makeStore(), sender: sender)
-        var first = makeItem()
-        first.strokeData = "first"
-        var second = makeItem()
-        second.strokeData = "second"
+        let first = PendingDrawingItem(id: UUID(), uid: "u1", groupId: "g1", groupName: "Besties",
+                                       createdAt: Date(), drawingData: "x", strokeData: "first",
+                                       stickerData: "[]", textData: "[]")
         // second created BEFORE first → oldest-first flush order
-        second.createdAt = Date().addingTimeInterval(-60)
+        let second = PendingDrawingItem(id: UUID(), uid: "u1", groupId: "g2", groupName: "Besties",
+                                        createdAt: Date().addingTimeInterval(-60), drawingData: "x",
+                                        strokeData: "second", stickerData: "[]", textData: "[]")
         service.store.enqueue(first)
         service.store.enqueue(second)
 
