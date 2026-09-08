@@ -64,7 +64,7 @@ enum PhotoLibrarySaver {
 
         if decision == .undetermined {
             PHPhotoLibrary.requestAuthorization(for: .addOnly) { newStatus in
-                request(decision(for: newStatus) == .allowed)
+                request(Self.decision(for: newStatus) == .allowed)
             }
         } else {
             request(true)
