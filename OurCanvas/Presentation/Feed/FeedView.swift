@@ -261,7 +261,7 @@ struct MemberAvatar: View {
     var size: CGFloat = 36
 
     var body: some View {
-        Group {
+        SwiftUI.Group {
             if let url = AvatarIdentity.url(forUid: uid) {
                 AsyncImage(url: url) { phase in
                     switch phase {

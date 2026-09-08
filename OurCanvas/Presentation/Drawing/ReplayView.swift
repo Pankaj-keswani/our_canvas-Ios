@@ -78,7 +78,7 @@ struct ReplayView: View {
                     Image(uiImage: controller.backgroundImage)
                         .resizable()
                         .scaledToFit()
-                    Group {
+                    SwiftUI.Group {
                         if let ink = controller.inkImage {
                             Image(uiImage: ink)
                                 .resizable()

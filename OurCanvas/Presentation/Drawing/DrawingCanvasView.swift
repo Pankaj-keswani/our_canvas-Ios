@@ -17,7 +17,7 @@ struct DrawingCanvasView: View {
                     .resizable()
                     .scaledToFit()
 
-                Group {
+                SwiftUI.Group {
                     if let ink = engine.inkImage {
                         Image(uiImage: ink)
                             .resizable()
