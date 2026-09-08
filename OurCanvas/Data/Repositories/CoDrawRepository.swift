@@ -23,8 +23,14 @@ final class CoDrawRepository {
                      displayName: String,
                      now: Date = Date()) async throws -> Bool {
         let ref = sessionRef(groupId)
-        let createdNew: Bool = try await db.runTransaction { transaction in
-            let snapshot = try transaction.getDocument(ref)
+        let createdNew = (try await db.runTransaction { transaction, errorPointer in
+            let snapshot: DocumentSnapshot
+            do {
+                snapshot = try transaction.getDocument(ref)
+            } catch {
+                errorPointer?.pointee = error as NSError
+                return false
+            }
 
             var requiresNew = true
             let data = snapshot.data() ?? [:]
@@ -75,16 +81,22 @@ final class CoDrawRepository {
                 ], forDocument: ref)
                 return false
             }
-        }
+        } as Bool?) ?? false
         return createdNew
     }
 
     /// Leave + mark inactive; ends the session when nobody present remains.
     func leaveSession(groupId: String, userId: String, now: Date = Date()) async throws {
         let ref = sessionRef(groupId)
-        _ = try await db.runTransaction { transaction in
-            let snapshot = try transaction.getDocument(ref)
-            guard snapshot.exists, let data = snapshot.data() else { return }
+        _ = try await db.runTransaction { transaction, errorPointer in
+            let snapshot: DocumentSnapshot
+            do {
+                snapshot = try transaction.getDocument(ref)
+            } catch {
+                errorPointer?.pointee = error as NSError
+                return nil
+            }
+            guard snapshot.exists, let data = snapshot.data() else { return nil }
 
             let session = CoDrawSession.from(documentID: snapshot.documentID, data: data)
 
