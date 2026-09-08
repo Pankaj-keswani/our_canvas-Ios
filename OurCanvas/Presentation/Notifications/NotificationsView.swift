@@ -1,5 +1,6 @@
 import SwiftUI
 import FirebaseAuth
+import FirebaseFirestore
 import Combine
 
 /// Notifications hub (Home bell entry). Newest first, capped at 20 visible,

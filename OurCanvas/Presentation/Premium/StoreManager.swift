@@ -120,7 +120,7 @@ final class StoreManager: ObservableObject {
 
     func refreshEntitlements() async {
         var entitled = false
-        for await result in Transaction.currentEntitlements {
+        for await result in StoreKit.Transaction.currentEntitlements {
             if let transaction = try? Self.checkVerified(result),
                transaction.productID == Self.productId {
                 entitled = true
@@ -131,7 +131,7 @@ final class StoreManager: ObservableObject {
 
     private func attemptPendingGrantIfEntitled() async {
         guard hasLocalEntitlement else { return }
-        for await result in Transaction.currentEntitlements {
+        for await result in StoreKit.Transaction.currentEntitlements {
             if let transaction = try? Self.checkVerified(result),
                transaction.productID == Self.productId {
                 await attemptServerGrant(transaction: transaction)
@@ -145,7 +145,7 @@ final class StoreManager: ObservableObject {
     /// Writes the shared-schema grant fields with the StoreKit transaction id as the
     /// purchase token. 1:1 binding is enforced by writing the claim doc first and
     /// aborting when the transaction is already bound to a different account.
-    private func attemptServerGrant(transaction: Transaction) async {
+    private func attemptServerGrant(transaction: StoreKit.Transaction) async {
         guard let uid = Auth.auth().currentUser?.uid else {
             grantState = .failed("You need to be signed in to activate Pro.")
             return
@@ -194,7 +194,7 @@ final class StoreManager: ObservableObject {
 
     private func listenForTransactions() -> Task<Void, Never> {
         Task.detached { [weak self] in
-            for await result in Transaction.updates {
+            for await result in StoreKit.Transaction.updates {
                 if let transaction = try? Self.checkVerified(result) {
                     await transaction.finish()
                     await self?.refreshEntitlements()
