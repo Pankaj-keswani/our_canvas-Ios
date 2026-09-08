@@ -23,14 +23,8 @@ final class CoDrawRepository {
                      displayName: String,
                      now: Date = Date()) async throws -> Bool {
         let ref = sessionRef(groupId)
-        let createdNew: Bool = try await db.runTransaction { transaction, errorPointer in
-            let snapshot: DocumentSnapshot
-            do {
-                snapshot = try transaction.getDocument(ref)
-            } catch {
-                errorPointer?.pointee = error as NSError
-                return false
-            }
+        let createdNew: Bool = try await db.runTransaction { transaction in
+            let snapshot = try transaction.getDocument(ref)
 
             var requiresNew = true
             let data = snapshot.data() ?? [:]
@@ -88,30 +82,20 @@ final class CoDrawRepository {
     /// Leave + mark inactive; ends the session when nobody present remains.
     func leaveSession(groupId: String, userId: String, now: Date = Date()) async throws {
         let ref = sessionRef(groupId)
-        _ = try await db.runTransaction { transaction, errorPointer in
-            let snapshot: DocumentSnapshot
-            do {
-                snapshot = try transaction.getDocument(ref)
-            } catch {
-                errorPointer?.pointee = error as NSError
-                return
-            }
+        _ = try await db.runTransaction { transaction in
+            let snapshot = try transaction.getDocument(ref)
             guard snapshot.exists, let data = snapshot.data() else { return }
-            var session = CoDrawSession.from(documentID: snapshot.documentID, data: data)
 
-            var participants = session.participants
+            let session = CoDrawSession.from(documentID: snapshot.documentID, data: data)
+
             var departure: [String: Any] = ((data["participants"] as? [String: Any])?[userId] as? [String: Any]) ?? [:]
             departure["isActive"] = false
             departure["lastSeenAt"] = FieldValue.serverTimestamp()
             transaction.setData(["participants.\(userId)": departure], forDocument: ref, merge: true)
 
             // Recompute presence ignoring the leaver.
+            var participants = session.participants
             participants[userId]?.isActive = false
-            session = CoDrawSession(id: session.id, groupId: session.groupId, status: session.status,
-                                    participants: participants,
-                                    activeParticipantCount: session.activeParticipantCount,
-                                    createdBy: session.createdBy, createdAt: session.createdAt,
-                                    lastActivityAt: session.lastActivityAt)
             let remaining = CoDrawLifecycle.activeParticipantIds(in: participants, now: now)
             if remaining.isEmpty {
                 transaction.updateData([
