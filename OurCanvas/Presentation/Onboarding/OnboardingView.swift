@@ -166,35 +166,32 @@ struct SelfDrawingDoodle: View {
     let progress: CGFloat
 
     var body: some View {
-        ZStack {
+        let trimmed = doodleShape.trim(from: 0, to: progress)
+        return ZStack {
             // Aura pass.
-            doodleShape
+            trimmed
                 .stroke(BrandColor.primary.opacity(0.18), lineWidth: 26)
                 .blur(radius: 14)
-                .trim(from: 0, to: progress)
 
             // Neon glow pass.
-            doodleShape
+            trimmed
                 .stroke(BrandColor.primary.opacity(0.5), lineWidth: 12)
                 .blur(radius: 5)
-                .trim(from: 0, to: progress)
 
             // Core stroke.
-            doodleShape
+            trimmed
                 .stroke(style: StrokeStyle(lineWidth: 7, lineCap: .round, lineJoin: .round))
                 .foregroundStyle(BrandGradient.primary)
-                .trim(from: 0, to: progress)
         }
         .padding(28)
     }
 
-    @ViewBuilder
-    private var doodleShape: some Shape {
+    private var doodleShape: AnyShape {
         switch kind {
-        case .heart: HeartDoodle()
-        case .star: StarDoodle()
-        case .rainbow: RainbowDoodle()
-        case .smiley: SmileyDoodle()
+        case .heart: return AnyShape(HeartDoodle())
+        case .star: return AnyShape(StarDoodle())
+        case .rainbow: return AnyShape(RainbowDoodle())
+        case .smiley: return AnyShape(SmileyDoodle())
         }
     }
 }

@@ -23,7 +23,7 @@ class NotificationManager: NSObject, ObservableObject, UNUserNotificationCenterD
 
     static let shared = NotificationManager()
 
-    private let deviceStore = DeviceLocalStore()
+    private var deviceStore = DeviceLocalStore()
     private let repository = NotificationRepository()
 
     /// Router set at app start; taps/payloads park routes until Main is ready.
@@ -101,7 +101,7 @@ class NotificationManager: NSObject, ObservableObject, UNUserNotificationCenterD
 
             switch payload.type {
             case .newDrawing, .newReaction, .newGameTurn, .guessResult:
-                reloadWidgets()
+                self.reloadWidgets()
             }
         }
     }
@@ -156,16 +156,16 @@ extension DeviceLocalStore {
     private static let systemNotifiedKey = "device.systemNotifiedKeys"
 
     func hasSystemNotified(key: String) -> Bool {
-        Set(stringArray(forKey: Self.systemNotifiedKey) ?? []).contains(key)
+        Set(defaults.stringArray(forKey: Self.systemNotifiedKey) ?? []).contains(key)
     }
 
     func markSystemNotified(key: String) {
-        var keys = Set(stringArray(forKey: Self.systemNotifiedKey) ?? [])
+        var keys = Set(defaults.stringArray(forKey: Self.systemNotifiedKey) ?? [])
         keys.insert(key)
         // Bound the set so defaults never grow unbounded.
         if keys.count > 100 {
             keys = Set(keys.suffix(100))
         }
-        set(Array(keys), forKey: Self.systemNotifiedKey)
+        defaults.set(Array(keys), forKey: Self.systemNotifiedKey)
     }
 }

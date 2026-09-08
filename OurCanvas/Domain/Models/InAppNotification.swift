@@ -1,4 +1,5 @@
 import Foundation
+import FirebaseFirestore
 
 /// `users/{uid}/notifications/{notificationId}` model — exact Android field names
 /// (spec A6.2/A9.4). Unknown fields decode safely; missing fields default.

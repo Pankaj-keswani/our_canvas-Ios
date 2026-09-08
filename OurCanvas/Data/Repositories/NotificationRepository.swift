@@ -65,7 +65,7 @@ final class NotificationRepository {
     func markAllRead(uid: String, notificationIds: [String]) async throws {
         guard !notificationIds.isEmpty else { return }
         let batch = db.batch()
-        for notificationId in notificationIds.prefix(cleanupBatchLimit) {
+        for notificationId in notificationIds.prefix(Self.cleanupBatchLimit) {
             batch.updateData(["read": true], forDocument: collection(uid).document(notificationId))
         }
         try await batch.commit()
@@ -78,7 +78,7 @@ final class NotificationRepository {
     func clearAll(uid: String, notificationIds: [String]) async throws {
         guard !notificationIds.isEmpty else { return }
         let batch = db.batch()
-        for notificationId in notificationIds.prefix(cleanupBatchLimit) {
+        for notificationId in notificationIds.prefix(Self.cleanupBatchLimit) {
             batch.deleteDocument(collection(uid).document(notificationId))
         }
         try await batch.commit()
@@ -96,7 +96,7 @@ final class NotificationRepository {
         let expired = notifications
             .filter { Self.isExpired($0) }
             .sorted { ($0.createdAt ?? .distantPast) < ($1.createdAt ?? .distantPast) }
-            .prefix(cleanupBatchLimit)
+            .prefix(Self.cleanupBatchLimit)
         guard !expired.isEmpty else { return }
         let batch = db.batch()
         for notification in expired {
