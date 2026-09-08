@@ -23,7 +23,7 @@ final class CoDrawRepository {
                      displayName: String,
                      now: Date = Date()) async throws -> Bool {
         let ref = sessionRef(groupId)
-        let createdNew = (try await db.runTransaction { transaction, errorPointer in
+        let createdNewResult: Any? = try await db.runTransaction { transaction, errorPointer in
             let snapshot: DocumentSnapshot
             do {
                 snapshot = try transaction.getDocument(ref)
@@ -81,7 +81,8 @@ final class CoDrawRepository {
                 ], forDocument: ref)
                 return false
             }
-        } as Bool?) ?? false
+        }
+        let createdNew = (createdNewResult as? Bool) ?? false
         return createdNew
     }
 
