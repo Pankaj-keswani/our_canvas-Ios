@@ -30,9 +30,15 @@ final class WhatsNewTests: XCTestCase {
     }
 
     func testVersionBumpReArmsDot() {
-        // Simulate CURRENT_VERSION moving to 4: a user at 3 re-arms.
-        XCTAssertTrue(WhatsNewState.shouldShowDot(local: 3, remote: 3) == (3 < 4))
-        XCTAssertFalse(WhatsNewState.shouldShowDot(local: 4, remote: 4) == (4 < 4))
+        // A user at the current version sees no dot...
+        XCTAssertFalse(WhatsNewState.shouldShowDot(local: WhatsNewContent.CURRENT_VERSION, remote: nil))
+        // ...and the comparison is strictly less-than against CURRENT_VERSION, so any
+        // future bump automatically re-arms the dot for every account below it.
+        let hypotheticalNextVersion = WhatsNewContent.CURRENT_VERSION + 1
+        XCTAssertTrue(hypotheticalNextVersion > WhatsNewContent.CURRENT_VERSION)
+        XCTAssertTrue(WhatsNewState.shouldShowDot(local: WhatsNewContent.CURRENT_VERSION - 1, remote: nil))
+        XCTAssertTrue(WhatsNewState.shouldShowDot(local: WhatsNewContent.CURRENT_VERSION,
+                                                  remote: WhatsNewContent.CURRENT_VERSION - 1))
     }
 
     func testEffectiveSeenVersionMergesLocalAndRemote() {
@@ -183,7 +189,7 @@ final class NotificationMaintenanceTests: XCTestCase {
             var notification = InAppNotification()
             notification.notificationId = "n\(index)"
             notification.createdAt = Date()
-            notification.read = index >= 25 // 5 unread within the first 25
+            notification.read = index < 15 // 5 unread within the first 20 (cap)
             return notification
         }
         let unread = items.prefix(NotificationRepository.displayCap).filter { !$0.read }.count
