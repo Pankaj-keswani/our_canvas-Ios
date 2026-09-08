@@ -212,6 +212,10 @@ final class AppRouterTests: XCTestCase {
 
         // Retry recovers when the backend comes back.
         profiles.fetchError = nil
+        var profile = User()
+        profile.displayName = "Pankaj"
+        profile.onboardingVersion = 1
+        profiles.profile = profile
         router.refreshSession()
         await waitFor { router.state == .ready }
     }
@@ -352,11 +356,15 @@ final class PushTokenStoreTests: XCTestCase {
             calls.append((token, uid))
         }
 
+        // Login happens while no token is known yet → nothing to persist.
         store.userDidAuthenticate(uid: "u1")
+        XCTAssertTrue(calls.isEmpty)
+
+        // Token refresh while logged in → exactly one association write.
         store.tokenDidUpdate("token-2")
-        XCTAssertEqual(calls.count, 2)
-        XCTAssertEqual(calls[1].token, "token-2")
-        XCTAssertEqual(calls[1].uid, "u1")
+        XCTAssertEqual(calls.count, 1)
+        XCTAssertEqual(calls[0].token, "token-2")
+        XCTAssertEqual(calls[0].uid, "u1")
     }
 
     func testTokenSurvivesAppRelaunchViaDefaults() {
@@ -386,11 +394,11 @@ final class PushTokenStoreTests: XCTestCase {
 
         store.userDidAuthenticate(uid: "u1")
         store.tokenDidUpdate("token-1")
-        XCTAssertEqual(calls.count, 2)
+        XCTAssertEqual(calls.count, 1)
 
         store.userDidSignOut()
         store.tokenDidUpdate("token-3")
-        XCTAssertEqual(calls.count, 2) // no association while signed out
+        XCTAssertEqual(calls.count, 1) // no association while signed out
         XCTAssertEqual(defaults.string(forKey: "device.fcmToken"), "token-3") // still cached
     }
 }
