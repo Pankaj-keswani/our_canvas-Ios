@@ -90,6 +90,20 @@ struct UserScopedStore {
         defaults.set(date.timeIntervalSince1970, forKey: scopedKey("group.lastVisit.\(groupId)"))
     }
 
+    // MARK: - Onboarding completion actions
+
+    /// `action_create` flag: set by onboarding completion, consumed once by MainTab.
+    var postOnboardingCreate: Bool {
+        get { defaults.bool(forKey: scopedKey("postOnboardingCreate")) }
+        set { defaults.set(newValue, forKey: scopedKey("postOnboardingCreate")) }
+    }
+
+    mutating func consumePostOnboardingCreate() -> Bool {
+        guard postOnboardingCreate else { return false }
+        postOnboardingCreate = false
+        return true
+    }
+
     // MARK: - Guess My Doodle reveals (later phase; key mirrors Android `{gameId}_{uid}`)
 
     func revealedWord(gameId: String) -> String? {
@@ -141,5 +155,18 @@ struct DeviceLocalStore {
     var notificationsPermissionRequested: Bool {
         get { defaults.bool(forKey: "device.notificationsPermissionRequested") }
         set { defaults.set(newValue, forKey: "device.notificationsPermissionRequested") }
+    }
+
+    /// Deep link that arrived before the router/Main was ready (cold launch).
+    /// Consumed once routing is possible.
+    var pendingDeepLinkURL: String? {
+        get { defaults.string(forKey: "device.pendingDeepLinkURL") }
+        set {
+            if let newValue {
+                defaults.set(newValue, forKey: "device.pendingDeepLinkURL")
+            } else {
+                defaults.removeObject(forKey: "device.pendingDeepLinkURL")
+            }
+        }
     }
 }

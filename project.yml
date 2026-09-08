@@ -73,8 +73,6 @@ targets:
     platform: iOS
     sources:
       - path: OurCanvasWidget
-      - path: OurCanvas/GoogleService-Info.plist
-        type: file
     info:
       path: OurCanvasWidget/Info.plist
       properties:
@@ -82,11 +80,6 @@ targets:
           NSExtensionPointIdentifier: com.apple.widgetkit-extension
     entitlements:
       path: OurCanvasWidget/OurCanvasWidget.entitlements
-    dependencies:
-      - package: Firebase
-        product: FirebaseFirestore
-      - package: Firebase
-        product: FirebaseAuth
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.aapka.prempatra.widget

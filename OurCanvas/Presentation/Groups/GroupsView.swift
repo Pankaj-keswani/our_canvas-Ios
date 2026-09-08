@@ -24,6 +24,13 @@ class GroupsViewModel: ObservableObject {
         let name = newGroupName.trimmed
         guard let uid = Auth.auth().currentUser?.uid, !name.isEmpty else { return }
 
+        // Free plan: max 2 active circles (Android A7.3).
+        let isPro = UserRepository.shared.currentUserProfile?.isPro ?? false
+        if !PremiumGate.canCreateGroup(currentCount: groups.count, isPro: isPro) {
+            errorText = "Free plan covers 2 circles. Upgrade to Pro for unlimited circles!"
+            return
+        }
+
         let newDoc = db.collection("groups").document()
         let code = String((0..<6).map { _ in "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789".randomElement()! })
         let fields = Group.creationFields(

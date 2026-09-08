@@ -65,6 +65,9 @@ final class AppRouter: ObservableObject {
     @Published var pendingRoute: AppRoute?
     @Published var bootstrapError: AppError?
 
+    /// Weak global reference for system entry points (push taps, widget URLs).
+    private(set) static weak var shared: AppRouter?
+
     static let currentOnboardingVersion = UserScopedStore.currentOnboardingVersion
 
     private let authProvider: AuthSessionProviding
@@ -78,6 +81,7 @@ final class AppRouter: ObservableObject {
         self.authProvider = authProvider
         self.profileProvider = profileProvider
         self.defaults = defaults
+        Self.shared = self
         // Firebase fires this listener immediately with the current user on registration,
         // which covers fresh install (nil → signedOut) and relaunch (user → full flow).
         unsubscribe = authProvider.addStateObserver { [weak self] snapshot in
@@ -174,5 +178,34 @@ final class AppRouter: ObservableObject {
     func consumePendingRoute() -> AppRoute? {
         defer { pendingRoute = nil }
         return pendingRoute
+    }
+
+    /// Notification-tap routing (hub rows): maps the notification's fields through
+    /// the same route model the push/widget/invite paths use.
+    func openDeepLink(notification: InAppNotification) {
+        let route: AppRoute
+        switch notification.type {
+        case .guessResult:
+            let gameId = notification.targetId.isEmpty ? notification.drawingId : notification.targetId
+            route = .guessGame(gameId: gameId)
+        case .newDrawing, .newReaction:
+            if notification.drawingId.isEmpty {
+                route = .drawingFeed(groupId: notification.groupId,
+                                     groupName: notification.groupName.isEmpty ? nil : notification.groupName)
+            } else {
+                route = .drawing(groupId: notification.groupId,
+                                 drawingId: notification.drawingId,
+                                 groupName: notification.groupName.isEmpty ? nil : notification.groupName)
+            }
+        }
+        pendingRoute = route
+    }
+
+    /// Consumes a deep link persisted before routing was possible (cold launch).
+    func consumePersistedDeepLink() {
+        let store = DeviceLocalStore()
+        guard let stored = store.pendingDeepLinkURL, let url = URL(string: stored) else { return }
+        store.pendingDeepLinkURL = nil
+        openURL(url)
     }
 }

@@ -28,6 +28,11 @@ struct PremiumGate {
     static func isPremiumBrush(_ brush: BrushType) -> Bool {
         premiumBrushes.contains(brush)
     }
+
+    /// Free plan: max 2 active circles (Android A7.3). Pure — tested.
+    static func canCreateGroup(currentCount: Int, isPro: Bool) -> Bool {
+        isPro || currentCount < 2
+    }
 }
 
 /// Shared drawing color palette. Free + Pro (locked) entries, matching the Android

@@ -1,5 +1,6 @@
 import SwiftUI
 import Combine
+import UIKit
 
 struct ContentView: View {
     @StateObject private var router: AppRouter
@@ -16,6 +17,9 @@ struct ContentView: View {
         .environmentObject(router)
         .onOpenURL { url in
             router.openURL(url)
+        }
+        .onAppear {
+            NotificationManager.shared.router = router
         }
     }
 
@@ -67,13 +71,15 @@ struct BootstrapErrorView: View {
     }
 }
 
-/// Phase 0 shell: the five final destinations (Home, Circles, center Create, What's New,
-/// Profile) with a minimal visual treatment. The polished floating pill bar lands in the
-/// UI phase; pending deep-link routes will be wired to tabs/screens from here.
+/// Phase 3 shell: the five final destinations (Home, Circles, center Create, What's New
+/// with red dot, Profile), What's New versioned badge, persisted deep-link consumption,
+/// post-onboarding create action and the first-run walkthrough.
 struct MainTabView: View {
     @EnvironmentObject private var router: AppRouter
     @State private var selectedTab = 0
     @State private var showCreate = false
+    @State private var showWalkthrough = false
+    @StateObject private var whatsNew = WhatsNewViewModel()
 
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -95,7 +101,7 @@ struct MainTabView: View {
                 .tag(1)
 
                 NavigationStack {
-                    WhatsNewView()
+                    WhatsNewView(viewModel: whatsNew)
                 }
                 .tabItem {
                     Label("What's New", systemImage: "sparkles")
@@ -127,12 +133,51 @@ struct MainTabView: View {
                 .padding(.trailing, 24)
                 .padding(.bottom, 68)
             }
+
+            // What's New red dot over the 3rd tab (tab bar slots: 0..3, dot sits at 62.5%).
+            GeometryReader { geometry in
+                if whatsNew.hasUnseen {
+                    Circle()
+                        .fill(Color.red)
+                        .frame(width: 10, height: 10)
+                        .position(x: geometry.size.width * 0.625, y: geometry.size.height - 52)
+                        .allowsHitTesting(false)
+                }
+            }
         }
         .onAppear {
             NotificationManager.shared.requestAuthorizationIfNeeded()
+            router.consumePersistedDeepLink()
+            maybeShowWalkthrough()
+            maybeOpenPostOnboardingCreate()
+        }
+        .onChange(of: selectedTab) { _ in
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
         }
         .sheet(isPresented: $showCreate) {
             CreateLauncherView()
+        }
+        .fullScreenCover(isPresented: $showWalkthrough) {
+            WalkthroughOverlay(isPresented: $showWalkthrough)
+        }
+    }
+
+    private func maybeShowWalkthrough() {
+        guard let uid = router.currentUID else { return }
+        let store = UserScopedStore(uid: uid)
+        let totalSteps = WalkthroughOverlay.totalSteps
+        if store.walkthroughStep < totalSteps {
+            showWalkthrough = true
+        }
+    }
+
+    /// `action_create` (Android): completing onboarding drops the user into the
+    /// create flow once.
+    private func maybeOpenPostOnboardingCreate() {
+        guard let uid = router.currentUID else { return }
+        let store = UserScopedStore(uid: uid)
+        if store.consumePostOnboardingCreate() {
+            showCreate = true
         }
     }
 }
