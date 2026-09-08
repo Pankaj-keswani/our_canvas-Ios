@@ -87,7 +87,7 @@ enum AuthService {
                 return .emailAlreadyInUse
             case .weakPassword:
                 return .weakPassword
-            case .wrongPassword, .invalidCredential, .userCredentialMismatch:
+            case .wrongPassword, .invalidCredential:
                 return .wrongCredentials
             case .userNotFound:
                 return .userNotFound

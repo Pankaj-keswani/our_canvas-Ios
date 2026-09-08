@@ -61,7 +61,7 @@ private final class MockProfileProvider: UserProfileProviding {
 }
 
 /// Waits for a MainActor-hopping condition (router transitions run in Tasks).
-private func waitFor(_ condition: @escaping () -> Bool,
+private func waitFor(_ condition: @escaping @MainActor () -> Bool,
                      timeout: TimeInterval = 2,
                      file: StaticString = #filePath,
                      line: UInt = #line) async {
