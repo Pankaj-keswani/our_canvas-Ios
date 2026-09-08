@@ -76,8 +76,10 @@ class GroupsViewModel: ObservableObject {
                     }
                     return
                 }
+                // Deployed rules: members may touch ONLY memberIds (+updatedAt).
                 try await doc.reference.updateData([
-                    "memberIds": FieldValue.arrayUnion([uid])
+                    "memberIds": FieldValue.arrayUnion([uid]),
+                    "updatedAt": FieldValue.serverTimestamp(),
                 ])
                 DispatchQueue.main.async {
                     self.inviteCode = ""

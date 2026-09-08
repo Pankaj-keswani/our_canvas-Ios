@@ -68,9 +68,25 @@ class GroupRepository: ObservableObject {
             throw AppError.permissionDenied
         }
 
+        // Deployed rules: members may touch ONLY memberIds (+updatedAt) —
+        // removing their own uid. Nothing else may change on a leave.
         let groupRef = db.collection("groups").document(groupId)
         try await groupRef.updateData([
-            "memberIds": FieldValue.arrayRemove([currentUser.uid])
+            "memberIds": FieldValue.arrayRemove([currentUser.uid]),
+            "updatedAt": FieldValue.serverTimestamp(),
+        ])
+    }
+
+    /// Owner-only rename. The deployed rules deny this for non-owners even if the
+    /// client is modified — callers surface AppError.permissionDenied gracefully.
+    func renameGroup(groupId: String, newName: String) async throws {
+        let trimmed = newName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard CircleRenameRules.isValidName(trimmed) else {
+            throw AppError.invalidInput("Circle names need 1–30 characters.")
+        }
+        try await db.collection("groups").document(groupId).updateData([
+            "groupName": trimmed,
+            "updatedAt": FieldValue.serverTimestamp(),
         ])
     }
 }

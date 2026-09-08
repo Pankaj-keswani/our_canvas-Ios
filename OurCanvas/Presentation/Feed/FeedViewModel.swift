@@ -33,8 +33,8 @@ class FeedViewModel: ObservableObject {
     private let drawingRepo = DrawingRepository()
     private let userRepository = UserRepository.shared
     private var listenerRegistration: ListenerRegistration?
+    private var groupListener: ListenerRegistration?
     private var didTrackVisit = false
-    private var unseenListener: ListenerRegistration?
 
     var currentUID: String? { Auth.auth().currentUser?.uid }
 
@@ -62,11 +62,29 @@ class FeedViewModel: ObservableObject {
 
     init(group: Group) {
         self.group = group
+        listenToGroupDocument()
         listenToDrawings()
     }
 
     deinit {
         listenerRegistration?.remove()
+        groupListener?.remove()
+    }
+
+    /// Live group-document listener: owner renames (and membership changes) update
+    /// the feed header, info sheet and every group-scoped view instantly.
+    func listenToGroupDocument() {
+        guard groupListener == nil else { return }
+        groupListener = Firestore.firestore()
+            .collection("groups")
+            .document(group.groupId)
+            .addSnapshotListener { [weak self] snapshot, error in
+                guard let data = snapshot?.data() else { return }
+                let updated = Group.from(documentID: snapshot?.documentID ?? "", data: data)
+                DispatchQueue.main.async {
+                    self?.group = updated
+                }
+            }
     }
 
     func listenToDrawings() {

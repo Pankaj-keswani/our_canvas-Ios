@@ -131,6 +131,16 @@ final class WidgetPayloadStore {
         #endif
     }
 
+    /// Rename support (Android group_names_cache + updateAllWidgets parity):
+    /// patch the cached circle name and refresh every widget timeline.
+    func updateCachedGroupName(groupId: String, newName: String) {
+        var payload = loadPayload()
+        guard payload.groupId == groupId, !groupId.isEmpty else { return }
+        payload.groupName = newName
+        save(payload: payload)
+        reloadTimelines()
+    }
+
     /// Account lifecycle: the App Group is device-shared, so circle data from the
     /// outgoing account must never render for the next one.
     func clearForAccountSwitch() {

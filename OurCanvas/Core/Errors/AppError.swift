@@ -84,6 +84,9 @@ enum AppError: Error, Equatable {
         if ns.domain == "FIRFirestoreErrorDomain" && ns.code == 14 {
             return .network
         }
+        if ns.domain == "FIRFirestoreErrorDomain" && ns.code == 7 {
+            return .permissionDenied
+        }
         let detail = ns.localizedDescription
         return .underlying(detail)
     }

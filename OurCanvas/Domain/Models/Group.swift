@@ -43,3 +43,27 @@ extension Group {
         ]
     }
 }
+
+/// Owner-only circle rename rules (UI + write validation, Android parity).
+/// The deployed Firestore rules stay authoritative — these mirror them client-side.
+enum CircleRenameRules {
+    static let maxLength = 30
+
+    /// Input clamp for the text field (typing beyond 30 is cut off).
+    static func clamped(_ text: String) -> String {
+        String(text.prefix(maxLength))
+    }
+
+    /// A saveable name: non-blank after trimming and within the limit.
+    static func isValidName(_ name: String) -> Bool {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        return !trimmed.isEmpty && trimmed.count <= maxLength
+    }
+
+    /// Save button gate: valid AND actually different from the current name.
+    static func canSave(newName: String, currentName: String) -> Bool {
+        guard isValidName(newName) else { return false }
+        return newName.trimmingCharacters(in: .whitespacesAndNewlines)
+            != currentName.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+}

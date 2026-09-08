@@ -35,15 +35,15 @@ struct FeedView: View {
 
             createFAB
         }
-        .navigationTitle(group.groupName)
+        .navigationTitle(viewModel.group.groupName)
         .navigationBarTitleDisplayMode(.large)
         .sheet(isPresented: $showingDrawingSheet) {
             NavigationStack {
-                DrawingComposerView(group: group)
+                DrawingComposerView(group: viewModel.group)
             }
         }
         .sheet(isPresented: $showingMembers) {
-            MembersSheet(group: group, members: viewModel.members, isPro: viewModel.isPro)
+            MembersSheet(group: viewModel.group, members: viewModel.members, isPro: viewModel.isPro)
                 .onAppear { viewModel.loadMembers() }
                 .presentationDetents([.medium, .large])
         }
@@ -70,11 +70,11 @@ struct FeedView: View {
         } label: {
             HStack(spacing: 8) {
                 HStack(spacing: -10) {
-                    ForEach(Array(group.memberIds.prefix(5).enumerated()), id: \.element) { _, uid in
+                    ForEach(Array(viewModel.group.memberIds.prefix(5).enumerated()), id: \.element) { _, uid in
                         MemberAvatar(uid: uid, size: 28)
                     }
                 }
-                Text("\(group.memberIds.count) members")
+                Text("\(viewModel.group.memberIds.count) members")
                     .font(.subheadline)
                     .foregroundColor(.secondary)
                 if viewModel.unseenCount > 0 {
@@ -121,7 +121,7 @@ struct FeedView: View {
                 favoritesList
             }
         case .guess:
-            GuessGameTabView(group: group)
+            GuessGameTabView(group: viewModel.group)
         }
     }
 
@@ -278,7 +278,24 @@ struct MembersSheet: View {
     @Environment(\.dismiss) private var dismiss
     @ObservedObject private var userRepository = UserRepository.shared
 
+    // Owner-only rename state.
+    @State private var showRenameDialog = false
+    @State private var renameText = ""
+    @State private var isRenaming = false
+    @State private var renameError: String?
+
     private var ownProfile: User? { userRepository.currentUserProfile }
+
+    /// Owner gate mirrors the deployed rules (groups.createdBy == auth.uid);
+    /// non-owners never see the pencil and the backend denies any manual write.
+    private var isOwner: Bool {
+        guard let uid = Auth.auth().currentUser?.uid else { return false }
+        return group.createdBy == uid
+    }
+
+    private var canSaveRename: Bool {
+        CircleRenameRules.canSave(newName: renameText, currentName: group.groupName)
+    }
 
     /// Reciprocity rule (Android A8.1): if I hide my email, members' emails are hidden
     /// from me too — and each member's own toggle hides theirs.
@@ -292,6 +309,27 @@ struct MembersSheet: View {
     var body: some View {
         NavigationStack {
             List {
+                Section {
+                    HStack {
+                        Text(group.groupName)
+                            .font(.headline)
+                            .lineLimit(2)
+                        Spacer()
+                        if isOwner {
+                            Button {
+                                renameText = group.groupName
+                                renameError = nil
+                                showRenameDialog = true
+                            } label: {
+                                Label("Rename circle", systemImage: "pencil")
+                                    .labelStyle(.iconOnly)
+                                    .font(.subheadline)
+                            }
+                            .accessibilityLabel("Rename circle")
+                        }
+                    }
+                }
+
                 Section {
                     ForEach(members) { member in
                         HStack(spacing: 12) {
@@ -325,6 +363,53 @@ struct MembersSheet: View {
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") { dismiss() }
+                }
+            }
+            .alert("Rename circle", isPresented: $showRenameDialog) {
+                TextField("Circle name", text: $renameText)
+                    .onChange(of: renameText) { newValue in
+                        renameText = CircleRenameRules.clamped(newValue)
+                    }
+                Button("Save") {
+                    saveRename()
+                }
+                .disabled(!canSaveRename || isRenaming)
+                Button("Cancel", role: .cancel) { }
+            } message: {
+                Text("\(renameText.count)/\(CircleRenameRules.maxLength)")
+            }
+            .alert("Couldn't rename", isPresented: Binding(
+                get: { renameError != nil },
+                set: { if !$0 { renameError = nil } }
+            )) {
+                Button("OK", role: .cancel) { }
+            } message: {
+                Text(renameError ?? "")
+            }
+        }
+    }
+
+    /// Owner-only rename: update Firestore (rules-enforced), patch the widget's
+    /// cached circle name and refresh timelines. Live views pick the new name up
+    /// through the group-document listener. Failures keep the old name.
+    private func saveRename() {
+        guard canSaveRename, !isRenaming else { return }
+        isRenaming = true
+        renameError = nil
+        let newName = renameText.trimmingCharacters(in: .whitespacesAndNewlines)
+        Task {
+            do {
+                try await GroupRepository().renameGroup(groupId: group.groupId, newName: newName)
+                WidgetPayloadStore.shared.updateCachedGroupName(groupId: group.groupId, newName: newName)
+                await MainActor.run {
+                    isRenaming = false
+                    showRenameDialog = false
+                }
+            } catch {
+                await MainActor.run {
+                    isRenaming = false
+                    // Keep the dialog open with the old name intact.
+                    renameError = AppError.from(error).message
                 }
             }
         }
