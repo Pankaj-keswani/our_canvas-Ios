@@ -179,8 +179,8 @@ enum StrokeSerializer {
             return []
         }
         return array.compactMap { raw in
-            // Android field "txt"; legacy iOS field "t" tolerated.
-            guard let text = FieldCast.string(raw["txt"]) ?? FieldCast.string(raw["t"]) else { return nil }
+            // Android field "txt" only — tolerating "t" would cross-match sticker dicts.
+            guard let text = FieldCast.string(raw["txt"]) else { return nil }
             var element = TextElement()
             if let idString = FieldCast.string(raw["id"]), let uuid = UUID(uuidString: idString) {
                 element.id = uuid

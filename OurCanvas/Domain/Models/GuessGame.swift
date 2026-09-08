@@ -306,8 +306,9 @@ enum LetterBankBuilder {
 
 /// Guess/word normalization shared with the worker semantics: lowercase letters only.
 enum GuessNormalizer {
+    /// Lowercase ASCII letters only — the word bank and worker comparison vocabulary.
     static func normalize(_ input: String) -> String {
-        String(input.lowercased().filter { $0.isLetter })
+        String(input.lowercased().filter { $0.isLetter && $0.isASCII })
     }
 }
 

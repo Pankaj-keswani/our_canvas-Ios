@@ -121,7 +121,7 @@ struct CoDrawLiveStroke: Equatable, Identifiable {
             isComplete: FieldCast.bool(data["isComplete"]) ?? false,
             canvasW: CGFloat(FieldCast.double(data["canvasW"]) ?? 1080),
             canvasH: CGFloat(FieldCast.double(data["canvasH"]) ?? 1080),
-            color: FieldCast.int(data["c"]) ?? 0xFF000000,
+            color: StrokeColor.canonical(FieldCast.int(data["c"]) ?? 0xFF000000),
             width: CGFloat(FieldCast.double(data["w"]) ?? 12),
             brush: BrushType.from(androidID: FieldCast.int(data["b"]) ?? 0)
         )
