@@ -51,6 +51,7 @@ final class DrawingEngine: ObservableObject {
     private var ink: InkCanvas
     private var undoStack: [DrawingOperation] = []
     private var redoStack: [DrawingOperation] = []
+    private var lastSelectedBrush: BrushType = .basic
 
     init(canvasSize: CGSize = CGSize(width: 1080, height: 1080),
          inkPixelSize: Int = 1080,
@@ -70,6 +71,7 @@ final class DrawingEngine: ObservableObject {
     var isEraserActive: Bool { tool.isEraser }
 
     func selectBrush(_ brush: BrushType) {
+        lastSelectedBrush = brush
         tool = .brush(brush)
     }
 
@@ -77,7 +79,8 @@ final class DrawingEngine: ObservableObject {
         if active {
             tool = .eraser
         } else if case .eraser = tool {
-            tool = .brush(.basic)
+            // Restore the brush that was active before erasing (never a contradictory state).
+            tool = .brush(lastSelectedBrush)
         }
     }
 

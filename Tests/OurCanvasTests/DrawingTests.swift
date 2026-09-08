@@ -275,7 +275,8 @@ final class UndoRedoTests: XCTestCase {
         XCTAssertTrue(engine.isEraserActive)
 
         engine.setEraser(active: false)
-        XCTAssertEqual(engine.tool, .brush(.basic), "Exiting eraser restores a brush, never a contradictory state")
+        XCTAssertEqual(engine.tool, .brush(.neon),
+                       "Exiting eraser restores the previously selected brush, never a contradictory state")
     }
 
     func testRepeatedTogglingKeepsStateConsistent() {
