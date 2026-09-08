@@ -7,7 +7,7 @@ struct DrawingComposerView: View {
     @Environment(\.dismiss) var dismiss
 
     @StateObject private var engine = DrawingEngine()
-    @StateObject private var coDraw: CoDrawViewModel(group: group)
+    @StateObject private var coDraw: CoDrawViewModel
     @State private var isSending = false
     @State private var activeAlert: ComposerAlert?
     @State private var shareItem: SharedImage?
