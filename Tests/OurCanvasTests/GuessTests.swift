@@ -329,7 +329,7 @@ final class WorkerContractTests: XCTestCase {
 
 final class GuessOutcomeTests: XCTestCase {
     func testCorrectGuess() {
-        let result = JudgeResult(correct: true, word: "cat", roundOver: true)
+        let result = JudgeResult(correct: true, word: "cat", gaveUp: false, roundOver: true)
         XCTAssertEqual(GuessOutcomeAction.action(for: result), .correct)
     }
 
