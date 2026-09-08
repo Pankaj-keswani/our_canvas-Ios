@@ -1,5 +1,6 @@
 import Foundation
 import CoreGraphics
+import FirebaseFirestore
 
 /// `co_draw_sessions/{groupId}` model — field names match the Android schema (A5.2).
 struct CoDrawSession: Equatable, Identifiable {

@@ -33,7 +33,8 @@ final class CoDrawRepository {
             }
 
             var requiresNew = true
-            if snapshot.exists, let data = snapshot.data() {
+            let data = snapshot.data() ?? [:]
+            if snapshot.exists {
                 let session = CoDrawSession.from(documentID: snapshot.documentID, data: data)
                 requiresNew = CoDrawLifecycle.requiresNewSession(session, now: now)
             }
@@ -157,7 +158,7 @@ final class CoDrawRepository {
                              onChange: @escaping ([CoDrawLiveStroke]) -> Void) -> ListenerRegistration {
         sessionRef(groupId).collection("live_strokes")
             .order(by: "createdAt")
-            .limitToLast(200)
+            .limit(toLast: 200)
             .addSnapshotListener { snapshot, error in
                 if let error {
                     print("CoDraw live_strokes listener error: \(error.localizedDescription)")
