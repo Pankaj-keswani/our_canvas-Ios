@@ -122,6 +122,7 @@ final class CoDrawRepository {
                     "lastActivityAt": FieldValue.serverTimestamp(),
                 ], forDocument: ref)
             }
+            return nil
         }
     }
 
