@@ -142,9 +142,11 @@ final class RenderingTests: XCTestCase {
         let background = DrawingBackground(template: .plain, colorHex: "#1A2035")
 
         // Ink layer alone: eraser punched through the ink → center transparent.
-        let inkOnly = StrokeRenderer.renderInkImage(strokes: [inkStroke, eraser],
-                                                    canvasSize: CGSize(width: 1080, height: 1080),
-                                                    outputPixels: 256)
+        guard let inkOnly = StrokeRenderer.renderInkImage(strokes: [inkStroke, eraser],
+                                                           canvasSize: CGSize(width: 1080, height: 1080),
+                                                           outputPixels: 256) else {
+            return XCTFail("Ink bitmap rendering failed")
+        }
         let inkPixel = centerPixel(of: inkOnly)
         if let p = inkPixel {
             XCTAssertEqual(p.a, 0, "Eraser must remove ink at the stroke path (got a=\(p.a))")
