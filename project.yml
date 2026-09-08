@@ -27,6 +27,7 @@ targets:
           UISceneConfigurations: {}
         NSCameraUsageDescription: "Needed for taking profile pictures."
         NSPhotoLibraryUsageDescription: "Needed for selecting profile pictures."
+        NSPhotoLibraryAddUsageDescription: "Needed for saving your doodles to your photo library."
         CFBundleURLTypes:
           - CFBundleURLName: GoogleSignIn
             CFBundleURLSchemes:

@@ -1,135 +1,265 @@
 import SwiftUI
 import FirebaseAuth
+import UIKit
 
 struct DrawingComposerView: View {
     let group: Group
     @Environment(\.dismiss) var dismiss
 
-    @State private var strokeRecords: [StrokeRecord] = []
-    @State private var currentBrush: BrushType = .basic
-    @State private var strokeColor: Color = .black
-    @State private var strokeWidth: CGFloat = 8
-    @State private var isEraser = false
-    @State private var isSaving = false
-    @State private var errorText: String?
+    @StateObject private var engine = DrawingEngine()
+    @State private var isSending = false
+    @State private var activeAlert: ComposerAlert?
+    @State private var shareItem: SharedImage?
+    @State private var editingText: TextElement?
+
+    private let drawingRepo = DrawingRepository()
+
+    private var gate: PremiumGate {
+        PremiumGate(isPro: UserRepository.shared.currentUserProfile?.isPro ?? false)
+    }
+
+    enum ComposerAlert: Identifiable {
+        case error(String)
+        case freeLimit
+        case upgradeStub
+
+        var id: String {
+            switch self {
+            case .error: return "error"
+            case .freeLimit: return "freeLimit"
+            case .upgradeStub: return "upgradeStub"
+            }
+        }
+    }
 
     var body: some View {
         VStack(spacing: 0) {
-            // Canvas Area
-            DrawingEngineView(
-                strokeRecords: $strokeRecords,
-                currentBrush: $currentBrush,
-                strokeColor: $strokeColor,
-                strokeWidth: $strokeWidth,
-                isEraser: $isEraser,
-                onStrokeFinished: {
-                    // Analytics or undo state update
-                }
-            )
-            .background(Color.white)
-            .aspectRatio(1, contentMode: .fit)
-            .shadow(color: .black.opacity(0.1), radius: 5)
-            .padding()
-
-            // Toolbar
-            HStack(spacing: 20) {
-                Button(action: { isEraser.toggle() }) {
-                    Image(systemName: isEraser ? "eraser.fill" : "eraser")
-                        .foregroundColor(isEraser ? .pink : .gray)
-                        .font(.title2)
-                }
-
-                ColorPicker("", selection: $strokeColor)
-                    .labelsHidden()
-                    .disabled(isEraser)
-
-                Slider(value: $strokeWidth, in: 2...40)
-                    .disabled(isEraser)
-
-                Button(action: { strokeRecords.removeAll() }) {
-                    Image(systemName: "trash")
-                        .foregroundColor(.red)
-                        .font(.title2)
-                }
+            DrawingCanvasView(engine: engine) { tappedID in
+                handleElementTap(tappedID)
             }
-            .padding()
-            .background(Color.gray.opacity(0.05))
+            .padding(.horizontal, 8)
+            .padding(.top, 8)
 
-            Spacer()
+            DrawingToolbar(engine: engine,
+                           gate: gate,
+                           onUpgradeTapped: { activeAlert = .upgradeStub },
+                           onSaveToDevice: { saveToDevice() },
+                           onShare: { share() })
         }
-        .navigationTitle("New Sketch")
+        .navigationTitle("Drawing for \(group.groupName)")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
                 Button("Cancel") { dismiss() }
             }
             ToolbarItem(placement: .confirmationAction) {
-                if isSaving {
+                if isSending {
                     ProgressView()
                 } else {
-                    Button("Send") { saveDrawing() }
+                    Button("Send") { sendDrawing() }
                         .fontWeight(.bold)
                 }
             }
         }
-        .alert("Couldn't send your drawing", isPresented: Binding(
-            get: { errorText != nil },
-            set: { if !$0 { errorText = nil } }
-        )) {
-            Button("OK", role: .cancel) { }
-        } message: {
-            Text(errorText ?? "")
+        .alert(item: $activeAlert) { alert in
+            switch alert {
+            case .error(let message):
+                return Alert(title: Text("Couldn't send your drawing"),
+                             message: Text(message),
+                             dismissButton: .default(Text("OK")))
+            case .freeLimit:
+                return Alert(title: Text("Free plan limit reached"),
+                             message: Text("You've sent \(DrawingLimits.freeDrawingsPerCircle) drawings in this circle on the free plan. Upgrade to Pro to keep the doodles flowing."),
+                             primaryButton: .default(Text("Upgrade to Pro")) { activeAlert = .upgradeStub },
+                             secondaryButton: .cancel(Text("Maybe later")))
+            case .upgradeStub:
+                return Alert(title: Text("Lifetime Pro"),
+                             message: Text("Upgrades arrive with the Premium phase. Everything you draw is saved meanwhile."),
+                             dismissButton: .default(Text("OK")))
+            }
+        }
+        .sheet(item: $shareItem) { item in
+            ShareSheet(items: [item.image])
+        }
+        .sheet(item: $editingText) { element in
+            TextEditSheet(element: element) { updated in
+                engine.updateElement(.text(updated))
+            }
         }
     }
 
-    private func saveDrawing() {
+    // MARK: - Element interaction
+
+    private func handleElementTap(_ id: UUID) {
+        // Select on tap; double-tap on text opens the editor.
+        if engine.selectedElementID == id, case .text(let text)? = engine.element(id: id) {
+            editingText = text
+        } else {
+            engine.selectElement(id: id)
+        }
+    }
+
+    // MARK: - Send (renders the REAL drawing)
+
+    private func sendDrawing() {
         guard let currentUser = Auth.auth().currentUser else { return }
-        isSaving = true
-        errorText = nil
+        guard !engine.strokes.isEmpty || !engine.stickers.isEmpty || !engine.texts.isEmpty else {
+            activeAlert = .error("Draw something first — the canvas is empty!")
+            return
+        }
 
-        let jsonStr = StrokeSerializer.exportStrokeData(records: strokeRecords, width: 1080, height: 1080)
-
-        // TODO(Drawing engine phase): render strokes into the exported bitmap. The blank
-        // placeholder below is a known pre-existing gap tracked in IOS_PARITY_AUDIT.md (CB-2).
-        let base64Image = createBlankImageBase64()
-
-        // recipientIds feeds the shared Android Cloud Function push fan-out; without it
-        // recipients get no notification.
+        isSending = true
         let recipients = group.memberIds.filter { $0 != currentUser.uid }
-
-        let newDrawing = Drawing(
-            groupId: group.groupId,
-            senderId: currentUser.uid,
-            recipientIds: recipients,
-            drawingData: base64Image,
-            isFavorite: false,
-            strokeData: jsonStr,
-            stickerData: "[]",
-            textData: "[]"
-        )
+        let sentStrokes = engine.strokes
 
         Task {
             do {
-                try await DrawingRepository().saveDrawing(drawing: newDrawing)
-                DispatchQueue.main.async {
-                    isSaving = false
+                // Free-plan limit: 15 drawings per circle per sender.
+                let sentCount = try await drawingRepo.countDrawingsBySender(
+                    groupId: group.groupId,
+                    senderId: currentUser.uid
+                )
+                let isPro = UserRepository.shared.currentUserProfile?.isPro ?? false
+                if DrawingLimits.sendBlocked(sentCount: sentCount, isPro: isPro) {
+                    await MainActor.run {
+                        isSending = false
+                        activeAlert = .freeLimit
+                    }
+                    return
+                }
+
+                // Render background + ink + stickers + text into the exported bitmap.
+                guard let base64Image = engine.exportCompositeJPEGBase64() else {
+                    throw AppError.underlying("We couldn't render your drawing. Please try again.")
+                }
+
+                let drawing = Drawing(
+                    groupId: group.groupId,
+                    senderId: currentUser.uid,
+                    recipientIds: recipients,
+                    drawingData: base64Image,
+                    isFavorite: false,
+                    strokeData: engine.encodedStrokeData,
+                    stickerData: engine.encodedStickerData,
+                    textData: engine.encodedTextData
+                )
+
+                try await drawingRepo.saveDrawing(drawing: drawing)
+
+                // Analytics/streak updates are best-effort — a failure must not fail the send.
+                try? await UserRepository.shared.recordDrawingSent(uid: currentUser.uid, strokes: sentStrokes)
+
+                await MainActor.run {
+                    isSending = false
                     dismiss()
                 }
             } catch {
-                DispatchQueue.main.async {
-                    isSaving = false
-                    errorText = AppError.from(error).message
+                await MainActor.run {
+                    isSending = false
+                    activeAlert = .error(AppError.from(error).message)
                 }
             }
         }
     }
 
-    private func createBlankImageBase64() -> String {
-        let renderer = UIGraphicsImageRenderer(size: CGSize(width: 200, height: 200))
-        let image = renderer.image { ctx in
-            UIColor.white.setFill()
-            ctx.fill(CGRect(x: 0, y: 0, width: 200, height: 200))
+    // MARK: - Export
+
+    private func saveToDevice() {
+        let image = engine.exportCompositePNG()
+        UIImageWriteToSavedPhotosAlbum(image, nil, nil, nil)
+    }
+
+    private func share() {
+        shareItem = SharedImage(image: engine.exportCompositePNG())
+    }
+}
+
+/// Identifiable wrapper so a rendered image can drive `sheet(item:)`.
+struct SharedImage: Identifiable {
+    let id = UUID()
+    let image: UIImage
+}
+
+// MARK: - Share sheet bridge
+
+struct ShareSheet: UIViewControllerRepresentable {
+    let items: [Any]
+
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        UIActivityViewController(activityItems: items, applicationActivities: nil)
+    }
+
+    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
+}
+
+// MARK: - Text editing
+
+struct TextEditSheet: View {
+    let element: TextElement
+    let onSave: (TextElement) -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var text: String
+    @State private var colorHex: String
+    @State private var fontSize: Double
+
+    init(element: TextElement, onSave: @escaping (TextElement) -> Void) {
+        self.element = element
+        self.onSave = onSave
+        _text = State(initialValue: element.text)
+        _colorHex = State(initialValue: StrokeColor.hexString(fromARGB: element.color))
+        _fontSize = State(initialValue: Double(element.fontSize))
+    }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section(header: Text("Text")) {
+                    TextField("Type something…", text: $text)
+                }
+                Section(header: Text("Color")) {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 10) {
+                            ForEach(DrawingPalette.entries.filter { !$0.isPremium }) { entry in
+                                Button {
+                                    colorHex = entry.hex
+                                } label: {
+                                    Circle()
+                                        .fill(Color(hexString: entry.hex))
+                                        .frame(width: 30, height: 30)
+                                        .overlay(Circle().strokeBorder(
+                                            colorHex.uppercased() == entry.hex.uppercased() ? BrandColor.primary : Color.black.opacity(0.15),
+                                            lineWidth: colorHex.uppercased() == entry.hex.uppercased() ? 3 : 1))
+                                }
+                                .accessibilityLabel(entry.name)
+                            }
+                        }
+                    }
+                }
+                Section(header: Text("Size")) {
+                    Slider(value: $fontSize, in: 32...200, step: 4)
+                    Text("Size: \(Int(fontSize))")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+            }
+            .navigationTitle("Edit Text")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Save") {
+                        var updated = element
+                        updated.text = text.trimmed
+                        updated.color = StrokeColor.argbInt(fromHex: colorHex)
+                        updated.fontSize = CGFloat(fontSize)
+                        onSave(updated)
+                        dismiss()
+                    }
+                }
+            }
         }
-        return image.pngData()?.base64EncodedString() ?? ""
     }
 }

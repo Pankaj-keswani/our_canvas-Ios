@@ -1,5 +1,6 @@
 import SwiftUI
 import FirebaseFirestore
+import FirebaseAuth
 
 struct GroupCard: View {
     let group: Group
@@ -33,7 +34,7 @@ struct GroupCard: View {
                 Text(group.groupName)
                     .font(.headline)
                     .lineLimit(1)
-                
+
                 HStack {
                     Image(systemName: "person.2.fill")
                         .font(.caption2)
@@ -42,9 +43,22 @@ struct GroupCard: View {
                 }
                 .foregroundColor(.secondary)
             }
-            
+
             Spacer()
-            
+
+            // Unseen-drawings badge (Android A6.5 foundation)
+            if let latest = latestDrawing, let sentAt = latest.sentAt,
+               let uid = Auth.auth().currentUser?.uid,
+               latest.senderId != uid,
+               sentAt > (UserScopedStore(uid: uid).lastVisit(forGroup: group.groupId) ?? .distantPast) {
+                Text("NEW")
+                    .font(.system(size: 9, weight: .bold))
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 3)
+                    .background(Capsule().fill(BrandGradient.primary))
+                    .foregroundColor(.black)
+            }
+
             Image(systemName: "chevron.right")
                 .foregroundColor(.gray.opacity(0.5))
         }

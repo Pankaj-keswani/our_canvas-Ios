@@ -110,6 +110,66 @@ class UserRepository: ObservableObject, UserProfileProviding {
         try await updateFields(uid: uid, UserFieldUpdate.fcmToken(token))
     }
 
+    // MARK: - Drawing-send analytics (Android A8.2 parity, field-level only)
+
+    /// Updates streaks/counters/favorites after a successful drawing send.
+    /// Read-modify-write on the non-incrementable fields (streaks, mostUsed*),
+    /// `FieldValue.increment` style semantics achieved by explicit computed maps.
+    func recordDrawingSent(uid: String, strokes: [Stroke]) async throws {
+        var fields: [String: Any] = [:]
+
+        let today = Self.dayFormatter.string(from: Date())
+
+        var colorCounts: [String: Int] = [:]
+        var brushCounts: [String: Int] = [:]
+        for stroke in strokes where !stroke.isEraser {
+            let hex = StrokeColor.hexString(fromARGB: stroke.color).uppercased()
+            colorCounts[hex, default: 0] += 1
+            brushCounts[stroke.brush.rawValue, default: 0] += 1
+        }
+
+        // Start from the freshest profile (bypass cache) so concurrent devices merge cleanly.
+        let profile = try await getUser(uid: uid, ignoreCache: true)
+
+        var mergedColors = profile?.colorCounts ?? [:]
+        for (hex, count) in colorCounts { mergedColors[hex, default: 0] += count }
+        var mergedBrushes = profile?.brushCounts ?? [:]
+        for (brush, count) in brushCounts { mergedBrushes[brush, default: 0] += count }
+
+        fields["drawingCount"] = (profile?.drawingCount ?? 0) + 1
+        fields["colorCounts"] = mergedColors
+        fields["brushCounts"] = mergedBrushes
+        if let topColor = mergedColors.max(by: { $0.value < $1.value })?.key {
+            fields["mostUsedColor"] = topColor
+        }
+        if let topBrush = mergedBrushes.max(by: { $0.value < $1.value })?.key {
+            fields["mostUsedBrush"] = topBrush.capitalized
+        }
+
+        // Streak: consecutive active days; breaks after a missed day.
+        if let profile {
+            if profile.lastActiveDate != today {
+                let isYesterday = profile.lastActiveDate == Self.dayFormatter.string(from: Date().addingTimeInterval(-86400))
+                let newStreak = isYesterday ? profile.currentStreak + 1 : 1
+                fields["currentStreak"] = newStreak
+                fields["longestStreak"] = max(profile.longestStreak, newStreak)
+                fields["lastActiveDate"] = today
+            }
+        } else {
+            fields["currentStreak"] = 1
+            fields["longestStreak"] = 1
+            fields["lastActiveDate"] = today
+        }
+
+        try await updateFields(uid: uid, fields)
+    }
+
+    static let dayFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter
+    }()
+
     // MARK: - Batch fetch
 
     func getUsersBatch(uids: [String]) async throws -> [String: User] {

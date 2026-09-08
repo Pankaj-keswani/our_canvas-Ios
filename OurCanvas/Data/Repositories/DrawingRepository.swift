@@ -6,12 +6,14 @@ class DrawingRepository: ObservableObject {
     private let db = Firestore.firestore()
 
     /// Writes `drawings/{id}.reactions.{senderId}` with the Android-compatible field set.
-    /// (emojiName + reactedAt per spec A14; senderName/senderId kept for the shared
-    /// Cloud Functions reaction push trigger.)
-    func addReaction(drawingId: String, emoji: String, senderName: String, senderId: String) async throws {
+    func addReaction(drawingId: String,
+                     emoji: String,
+                     emojiName: String,
+                     senderName: String,
+                     senderId: String) async throws {
         let reactionFields: [String: Any] = [
             "emoji": emoji,
-            "emojiName": emoji,
+            "emojiName": emojiName.isEmpty ? emoji : emojiName,
             "senderName": senderName,
             "senderId": senderId,
             "reactedAt": FieldValue.serverTimestamp(),
@@ -60,24 +62,43 @@ class DrawingRepository: ObservableObject {
             mutableDrawing.id = mutableDrawing.drawingId
         }
 
-        let fields: [String: Any] = [
-            "drawingId": mutableDrawing.drawingId,
-            "groupId": mutableDrawing.groupId,
-            "senderId": mutableDrawing.senderId,
-            "recipientIds": mutableDrawing.recipientIds,
-            "drawingData": mutableDrawing.drawingData,
-            "strokeData": mutableDrawing.strokeData,
-            "stickerData": mutableDrawing.stickerData,
-            "textData": mutableDrawing.textData,
-            "sentAt": FieldValue.serverTimestamp(),
-            "isFavorite": mutableDrawing.isFavorite,
-        ]
+        let fields = DrawingFieldBuilder.fields(for: mutableDrawing)
         try await db.collection("drawings").document(mutableDrawing.drawingId).setData(fields)
+    }
+
+    /// Free-plan limit support: how many drawings this sender has already sent to the
+    /// circle. Fetches up to the limit (+1) — an exact count beyond it is irrelevant.
+    func countDrawingsBySender(groupId: String, senderId: String) async throws -> Int {
+        let snapshot = try await db.collection("drawings")
+            .whereField("groupId", isEqualTo: groupId)
+            .whereField("senderId", isEqualTo: senderId)
+            .limit(to: DrawingLimits.freeDrawingsPerCircle)
+            .getDocuments()
+        return snapshot.documents.count
     }
 
     func toggleFavorite(drawingId: String, isFavorite: Bool) async throws {
         try await db.collection("drawings").document(drawingId).updateData([
             "isFavorite": isFavorite
         ])
+    }
+}
+
+/// Explicit Firestore field set for drawing documents (unit-testable; keeps the schema
+/// exactly Android-compatible — including `recipientIds` for the push fan-out trigger).
+enum DrawingFieldBuilder {
+    static func fields(for drawing: Drawing) -> [String: Any] {
+        [
+            "drawingId": drawing.drawingId,
+            "groupId": drawing.groupId,
+            "senderId": drawing.senderId,
+            "recipientIds": drawing.recipientIds,
+            "drawingData": drawing.drawingData,
+            "strokeData": drawing.strokeData,
+            "stickerData": drawing.stickerData,
+            "textData": drawing.textData,
+            "sentAt": FieldValue.serverTimestamp(),
+            "isFavorite": drawing.isFavorite,
+        ]
     }
 }
