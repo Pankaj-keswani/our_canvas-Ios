@@ -185,7 +185,7 @@ final class AppRouterTests: XCTestCase {
         XCTAssertEqual(store.onboardingVersion, 1)
 
         // Firestore field update was requested via the narrow payload.
-        await waitFor { profiles.updateCalls.count == 1 }
+        await waitFor { self.profiles.updateCalls.count == 1 }
         XCTAssertEqual(profiles.updateCalls.first?["onboardingVersion"] as? Int, 1)
     }
 
@@ -295,14 +295,15 @@ final class UserScopedStoreTests: XCTestCase {
         XCTAssertEqual(store.notificationPreferences, prefs)
     }
 
-    func testGroupLastVisitRoundTrip() {
+    func testGroupLastVisitRoundTrip() throws {
         let defaults = makeDefaults()
         let store = UserScopedStore(uid: "u1", defaults: defaults)
 
         XCTAssertNil(store.lastVisit(forGroup: "g1"))
         let date = Date(timeIntervalSince1970: 1_700_000_000)
         store.setLastVisit(date, forGroup: "g1")
-        XCTAssertEqual(store.lastVisit(forGroup: "g1")?.timeIntervalSince1970,
+        let stored = try XCTUnwrap(store.lastVisit(forGroup: "g1"))
+        XCTAssertEqual(stored.timeIntervalSince1970,
                        date.timeIntervalSince1970,
                        accuracy: 0.001)
         XCTAssertNil(store.lastVisit(forGroup: "g2"))
