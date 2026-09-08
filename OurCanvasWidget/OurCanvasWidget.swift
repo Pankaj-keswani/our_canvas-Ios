@@ -214,22 +214,18 @@ struct RefreshWidgetIntent: AppIntent {
     }
 }
 
-struct WidgetRefreshButton: View {
-    var body: some View {
-        Button(intent: RefreshWidgetIntent()) {
-            Image(systemName: "arrow.clockwise.circle.fill")
-                .font(.system(size: 18))
-                .foregroundStyle(.white)
-        }
-        .buttonStyle(.borderless)
-    }
-}
-
-/// Renders the interactive refresh button only on iOS 17+.
+/// Interactive refresh button — iOS 17+ ONLY (the availability gate must sit at the
+/// Button(intent:) use site). On iOS 16 this renders nothing; refresh relies on the
+/// timeline policy and app-triggered reloads (documented fallback).
 struct WidgetRefreshIfAvailable: View {
     var body: some View {
         if #available(iOSApplicationExtension 17.0, iOS 17.0, *) {
-            WidgetRefreshButton()
+            Button(intent: RefreshWidgetIntent()) {
+                Image(systemName: "arrow.clockwise.circle.fill")
+                    .font(.system(size: 18))
+                    .foregroundStyle(.white)
+            }
+            .buttonStyle(.borderless)
         } else {
             EmptyView()
         }
