@@ -126,6 +126,6 @@ private final class MockAuthNoUser: AuthSessionProviding {
 private final class MockProfileNil: UserProfileProviding {
     func fetchOrCreateProfile(uid: String,
                               fallbackDisplayName: String?,
-                              fallbackEmail: String?) async throws -> User? { nil }
+                              fallbackEmail: String?) async throws -> User { User() }
     func updateFields(uid: String, _ fields: [String: Any]) async throws {}
 }
