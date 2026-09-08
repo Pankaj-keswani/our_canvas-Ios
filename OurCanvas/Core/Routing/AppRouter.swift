@@ -203,7 +203,7 @@ final class AppRouter: ObservableObject {
 
     /// Consumes a deep link persisted before routing was possible (cold launch).
     func consumePersistedDeepLink() {
-        let store = DeviceLocalStore()
+        var store = DeviceLocalStore()
         guard let stored = store.pendingDeepLinkURL, let url = URL(string: stored) else { return }
         store.pendingDeepLinkURL = nil
         openURL(url)

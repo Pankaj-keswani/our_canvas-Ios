@@ -175,7 +175,7 @@ struct MainTabView: View {
     /// create flow once.
     private func maybeOpenPostOnboardingCreate() {
         guard let uid = router.currentUID else { return }
-        let store = UserScopedStore(uid: uid)
+        var store = UserScopedStore(uid: uid)
         if store.consumePostOnboardingCreate() {
             showCreate = true
         }
