@@ -214,7 +214,7 @@ private struct ElementGestureModifier: ViewModifier {
                 if rotationStartAngle < 0 {
                     rotationStartAngle = elementRotation
                 }
-                updateRotation(rotationStartAngle + value)
+                updateRotation(rotationStartAngle + value.radians)
             }
             .onEnded { _ in
                 rotationStartAngle = -1
