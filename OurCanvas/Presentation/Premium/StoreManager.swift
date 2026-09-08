@@ -205,7 +205,7 @@ final class StoreManager: ObservableObject {
         }
     }
 
-    private static func checkVerified<T>(_ result: VerificationResult<T>) throws -> T {
+    nonisolated private static func checkVerified<T>(_ result: VerificationResult<T>) throws -> T {
         switch result {
         case .unverified:
             throw StoreError.failedVerification
