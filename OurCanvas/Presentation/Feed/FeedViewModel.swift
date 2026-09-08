@@ -67,7 +67,6 @@ class FeedViewModel: ObservableObject {
 
     deinit {
         listenerRegistration?.remove()
-        unseenListener?.remove()
     }
 
     func listenToDrawings() {

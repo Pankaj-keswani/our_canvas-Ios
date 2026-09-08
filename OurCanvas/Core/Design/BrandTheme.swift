@@ -98,6 +98,8 @@ struct PrimaryGradientButton: View {
                 Text(title)
                     .font(BrandFont.headline())
                     .foregroundColor(.black)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7) // Dynamic Type XXL tolerance
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 14)

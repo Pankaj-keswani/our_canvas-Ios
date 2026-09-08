@@ -4,6 +4,7 @@ import UIKit
 
 struct ContentView: View {
     @StateObject private var router: AppRouter
+    @Environment(\.scenePhase) private var scenePhase
 
     init() {
         _router = StateObject(wrappedValue: AppRouter())
@@ -20,6 +21,12 @@ struct ContentView: View {
         }
         .onAppear {
             NotificationManager.shared.router = router
+        }
+        .onChange(of: scenePhase) { phase in
+            if phase == .active {
+                // Foreground flush is the PRIMARY retry path (iOS background limits).
+                OfflineQueueService.shared.flushForCurrentUser(reason: "foreground")
+            }
         }
     }
 
@@ -80,6 +87,16 @@ struct MainTabView: View {
     @State private var showCreate = false
     @State private var showWalkthrough = false
     @StateObject private var whatsNew = WhatsNewViewModel()
+    @ObservedObject private var offlineQueue = OfflineQueueService.shared
+
+    private var bannerText: String {
+        if offlineQueue.isOffline {
+            return offlineQueue.pendingCount > 0
+                ? "Offline — \(offlineQueue.pendingCount) doodle\(offlineQueue.pendingCount == 1 ? "" : "s") queued"
+                : "You're offline"
+        }
+        return "Sending \(offlineQueue.pendingCount) queued doodle\(offlineQueue.pendingCount == 1 ? "" : "s")…"
+    }
 
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -144,12 +161,33 @@ struct MainTabView: View {
                         .allowsHitTesting(false)
                 }
             }
+
+            // Offline / pending-sends banner (Android OfflineBanner parity).
+            if offlineQueue.isOffline || offlineQueue.pendingCount > 0 {
+                VStack {
+                    HStack(spacing: 8) {
+                        Image(systemName: offlineQueue.isOffline ? "wifi.slash" : "airplane.circle")
+                        Text(bannerText)
+                            .font(.caption.weight(.semibold))
+                    }
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 8)
+                    .background(Capsule().fill(BrandColor.warning.opacity(0.95)))
+                    .foregroundColor(.black)
+                    .padding(.top, 6)
+                    Spacer()
+                }
+                .allowsHitTesting(false)
+            }
         }
+        .environmentObject(offlineQueue)
         .onAppear {
             NotificationManager.shared.requestAuthorizationIfNeeded()
             router.consumePersistedDeepLink()
             maybeShowWalkthrough()
             maybeOpenPostOnboardingCreate()
+            OfflineQueueService.shared.refreshPendingCount()
+            OfflineQueueService.shared.flushForCurrentUser(reason: "mainAppear")
         }
         .onChange(of: selectedTab) { _ in
             UIImpactFeedbackGenerator(style: .light).impactOccurred()

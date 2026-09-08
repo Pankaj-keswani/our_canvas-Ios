@@ -231,6 +231,7 @@ struct FeedView: View {
                         .background(Circle().fill(BrandGradient.primary))
                         .shadow(color: BrandColor.primary.opacity(0.4), radius: 8, x: 0, y: 4)
                 }
+                .accessibilityLabel("New drawing")
             }
             .padding()
         }

@@ -105,6 +105,11 @@ final class AppRouter: ObservableObject {
         guard let snapshot else {
             state = .signedOut
             PushTokenStore.shared.userDidSignOut()
+            // Cross-account privacy: clear device-shared state from the outgoing
+            // account (widget payload/selection); the offline queue stays on disk
+            // but is uid-scoped and invisible to the next account.
+            WidgetPayloadStore.shared.clearForAccountSwitch()
+            OfflineQueueService.shared.handleAuthChange()
             return
         }
 

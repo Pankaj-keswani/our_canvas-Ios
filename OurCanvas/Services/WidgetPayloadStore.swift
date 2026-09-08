@@ -130,4 +130,12 @@ final class WidgetPayloadStore {
         WidgetCenter.shared.reloadAllTimelines()
         #endif
     }
+
+    /// Account lifecycle: the App Group is device-shared, so circle data from the
+    /// outgoing account must never render for the next one.
+    func clearForAccountSwitch() {
+        defaults?.removeObject(forKey: Self.payloadKey)
+        defaults?.removeObject(forKey: Self.selectedGroupIdKey)
+        reloadTimelines()
+    }
 }

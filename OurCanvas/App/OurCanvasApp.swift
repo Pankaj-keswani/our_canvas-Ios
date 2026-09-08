@@ -23,6 +23,8 @@ class AppDelegate: NSObject, UIApplicationDelegate {
                 }
             }
         }
+        // Offline reliability: connectivity monitoring + reconnect flushes.
+        OfflineQueueService.shared.start()
         return true
     }
 

@@ -187,8 +187,7 @@ final class RemoteStrokeAccumulatorTests: XCTestCase {
         var accumulator = RemoteStrokeAccumulator(userId: "u2",
                                                   color: 0xFF000000,
                                                   width: 12,
-                                                  brush: .basic,
-                                                  canvasSize: CGSize(width: 1080, height: 1080))
+                                                  brush: .basic)
         accumulator.append(points: [CGPoint(x: 10, y: 20)], sequence: 1,
                            sourceCanvas: CGSize(width: 1080, height: 1080),
                            localCanvasSize: CGSize(width: 1080, height: 1080))
@@ -201,8 +200,7 @@ final class RemoteStrokeAccumulatorTests: XCTestCase {
     }
 
     func testIgnoresDuplicateAndStaleSequences() {
-        var accumulator = RemoteStrokeAccumulator(userId: "u2", color: 0, width: 8, brush: .basic,
-                                                  canvasSize: CGSize(width: 1080, height: 1080))
+        var accumulator = RemoteStrokeAccumulator(userId: "u2", color: 0, width: 8, brush: .basic)
         accumulator.append(points: [CGPoint(x: 1, y: 1)], sequence: 2,
                            sourceCanvas: CGSize(width: 1080, height: 1080),
                            localCanvasSize: CGSize(width: 1080, height: 1080))
@@ -216,8 +214,7 @@ final class RemoteStrokeAccumulatorTests: XCTestCase {
     }
 
     func testFullSnapshotReplayIsIdempotent() {
-        var accumulator = RemoteStrokeAccumulator(userId: "u2", color: 0, width: 8, brush: .basic,
-                                                  canvasSize: CGSize(width: 1080, height: 1080))
+        var accumulator = RemoteStrokeAccumulator(userId: "u2", color: 0, width: 8, brush: .basic)
         let allPoints = [CGPoint(x: 1, y: 1), CGPoint(x: 2, y: 2), CGPoint(x: 3, y: 3)]
         // Snapshot listener re-delivers the full accumulated document twice.
         for _ in 0..<2 {

@@ -7,11 +7,13 @@ struct DrawingComposerView: View {
     @Environment(\.dismiss) var dismiss
 
     @StateObject private var engine = DrawingEngine()
-    @StateObject private var coDraw: CoDrawViewModel
+    @StateObject private var coDraw: CoDrawViewModel(group: group)
     @State private var isSending = false
     @State private var activeAlert: ComposerAlert?
     @State private var shareItem: SharedImage?
     @State private var editingText: TextElement?
+    @State private var queuedOffline = false
+    @State private var saveMessage: String?
 
     private let drawingRepo = DrawingRepository()
 
@@ -115,6 +117,19 @@ struct DrawingComposerView: View {
                              dismissButton: .default(Text("OK")))
             }
         }
+        .alert("Save to Device", isPresented: Binding(
+            get: { saveMessage != nil },
+            set: { if !$0 { saveMessage = nil } }
+        )) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(saveMessage ?? "")
+        }
+        .alert("Saved for later ✈️", isPresented: $queuedOffline) {
+            Button("OK") { dismiss() }
+        } message: {
+            Text("You're offline — your doodle is safely queued and will send automatically when you're back.")
+        }
         .sheet(item: $shareItem) { item in
             ShareSheet(items: [item.image])
         }
@@ -184,7 +199,22 @@ struct DrawingComposerView: View {
                     textData: engine.encodedTextData
                 )
 
-                try await drawingRepo.saveDrawing(drawing: drawing)
+                do {
+                    try await drawingRepo.saveDrawing(drawing: drawing)
+                } catch {
+                    // Offline reliability: queue network failures instead of losing
+                    // the drawing; anything else surfaces as a normal error.
+                    let appError = AppError.from(error)
+                    if OfflineQueueService.shared.enqueueIfNetworkFailure(
+                        drawing: drawing, groupName: group.groupName, error: appError) {
+                        await MainActor.run {
+                            isSending = false
+                            queuedOffline = true
+                        }
+                        return
+                    }
+                    throw appError
+                }
 
                 // Analytics/streak updates are best-effort — a failure must not fail the send.
                 try? await UserRepository.shared.recordDrawingSent(uid: currentUser.uid, strokes: sentStrokes)
@@ -206,7 +236,9 @@ struct DrawingComposerView: View {
 
     private func saveToDevice() {
         let image = engine.exportCompositePNG()
-        UIImageWriteToSavedPhotosAlbum(image, nil, nil, nil)
+        PhotoLibrarySaver.save(image: image) { message in
+            saveMessage = message
+        }
     }
 
     private func share() {

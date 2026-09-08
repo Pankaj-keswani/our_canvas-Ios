@@ -17,7 +17,6 @@ final class CoDrawViewModel: ObservableObject {
     @Published private(set) var isActive = false
     @Published private(set) var remoteInkImage: UIImage?
     @Published var errorText: String?
-    @Published private(set) var lastSyncedRemoteCount = 0
 
     var participantCount: Int {
         guard let session else { return 0 }
@@ -226,8 +225,7 @@ final class CoDrawViewModel: ObservableObject {
                         userId: event.userId,
                         color: event.color,
                         width: event.width,
-                        brush: event.brush,
-                        canvasSize: event.canvasSize
+                        brush: event.brush
                     )
                 }
                 remoteAccumulators[event.id]?.append(points: event.points,
@@ -286,7 +284,6 @@ final class CoDrawViewModel: ObservableObject {
             remoteInk.reset(with: remoteAccumulators.values.map { $0.stroke })
             remoteInkImage = remoteInk.image
         }
-        lastSyncedRemoteCount = remoteAccumulators.count
     }
 
     private var completedRemoteStrokeIds: Set<String> = []

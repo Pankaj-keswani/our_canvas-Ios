@@ -200,17 +200,14 @@ struct RemoteStrokeAccumulator: Equatable {
     private(set) var stroke: Stroke
     private(set) var lastSequence = 0
 
-    init(userId: String, color: Int, width: CGFloat, brush: BrushType, canvasSize: CGSize) {
+    init(userId: String, color: Int, width: CGFloat, brush: BrushType) {
         var initial = Stroke()
         initial.color = color
         initial.width = width
         initial.brush = brush
         initial.ownerId = userId
         self.stroke = initial
-        self.canvasSize = canvasSize
     }
-
-    fileprivate var canvasSize: CGSize
 
     /// Appends a batch (ignores out-of-order/duplicate sequences) after scaling the
     /// sender's canvas space into `localCanvasSize`.

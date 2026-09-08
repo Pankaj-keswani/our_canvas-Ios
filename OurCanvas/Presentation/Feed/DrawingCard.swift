@@ -237,8 +237,9 @@ struct DrawingCard: View {
             saveMessage = "Couldn't load this doodle."
             return
         }
-        UIImageWriteToSavedPhotosAlbum(image, nil, nil, nil)
-        saveMessage = "Saved to Photos!"
+        PhotoLibrarySaver.save(image: image) { message in
+            saveMessage = message
+        }
     }
 }
 
