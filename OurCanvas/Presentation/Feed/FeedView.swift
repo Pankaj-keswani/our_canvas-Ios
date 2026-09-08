@@ -5,16 +5,16 @@ struct FeedView: View {
     let group: Group
     @StateObject private var viewModel: FeedViewModel
     @State private var showingDrawingSheet = false
-    
+
     init(group: Group) {
         self.group = group
         _viewModel = StateObject(wrappedValue: FeedViewModel(group: group))
     }
-    
+
     var body: some View {
         ZStack {
             Color(red: 247/255, green: 249/255, blue: 251/255).ignoresSafeArea()
-            
+
             if viewModel.isLoading {
                 ProgressView("Loading Feed...")
             } else if viewModel.drawings.isEmpty {
@@ -25,7 +25,7 @@ struct FeedView: View {
                     Text("No drawings yet in this circle.")
                         .font(.headline)
                         .foregroundColor(.secondary)
-                    
+
                     Button(action: { showingDrawingSheet = true }) {
                         Text("Create the first drawing")
                             .fontWeight(.semibold)
@@ -50,7 +50,7 @@ struct FeedView: View {
                     .padding()
                 }
             }
-            
+
             VStack {
                 Spacer()
                 HStack {
@@ -64,14 +64,24 @@ struct FeedView: View {
                             .clipShape(Circle())
                             .shadow(color: Color.pink.opacity(0.4), radius: 8, x: 0, y: 4)
                     }
-                    .padding()
                 }
+                .padding()
             }
         }
         .navigationTitle(group.groupName)
         .navigationBarTitleDisplayMode(.inline)
         .sheet(isPresented: $showingDrawingSheet) {
-            DrawingComposerView(group: group)
+            NavigationStack {
+                DrawingComposerView(group: group)
+            }
+        }
+        .alert("Something went wrong", isPresented: Binding(
+            get: { viewModel.error != nil },
+            set: { if !$0 { viewModel.error = nil } }
+        )) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(viewModel.error?.message ?? "")
         }
     }
 }

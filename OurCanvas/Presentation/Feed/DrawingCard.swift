@@ -21,7 +21,7 @@ struct DrawingCard: View {
                     Text(drawing.senderId == Auth.auth().currentUser?.uid ? "You" : "Friend")
                         .font(.subheadline)
                         .fontWeight(.semibold)
-                    if let date = drawing.sentAt?.dateValue() {
+                    if let date = drawing.sentAt {
                         Text(date, style: .relative)
                             .font(.caption)
                             .foregroundColor(.secondary)

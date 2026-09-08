@@ -8,6 +8,9 @@ packages:
   Firebase:
     url: https://github.com/firebase/firebase-ios-sdk.git
     from: 10.23.0
+  GoogleSignIn:
+    url: https://github.com/google/GoogleSignIn-iOS.git
+    from: 7.1.0
 
 targets:
   OurCanvas:
@@ -24,6 +27,13 @@ targets:
           UISceneConfigurations: {}
         NSCameraUsageDescription: "Needed for taking profile pictures."
         NSPhotoLibraryUsageDescription: "Needed for selecting profile pictures."
+        CFBundleURLTypes:
+          - CFBundleURLName: GoogleSignIn
+            CFBundleURLSchemes:
+              - com.googleusercontent.apps.102366474445-kp02urkc2me669tqf04qvkunprjd6qr4
+          - CFBundleURLName: OurCanvasDeepLink
+            CFBundleURLSchemes:
+              - ourcanvas
         UIBackgroundModes:
           - remote-notification
     entitlements:
@@ -41,6 +51,8 @@ targets:
         product: FirebaseFunctions
       - package: Firebase
         product: FirebaseMessaging
+      - package: GoogleSignIn
+        product: GoogleSignIn
       - target: OurCanvasWidget
     settings:
       base:
