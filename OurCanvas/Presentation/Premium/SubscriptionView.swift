@@ -253,18 +253,22 @@ struct SubscriptionView: View {
         Task {
             do {
                 let outcome = try await PromoCodeService().redeem(code: code, uid: uid)
+                if case .success = outcome {
+                    _ = try? await UserRepository.shared.getUser(uid: uid, ignoreCache: true)
+                }
+                let message = Self.message(for: outcome)
                 await MainActor.run {
                     isRedeeming = false
-                    promoMessage = Self.message(for: outcome)
+                    promoMessage = message
                     if case .success = outcome {
                         promoCode = ""
-                        _ = try? await UserRepository.shared.getUser(uid: uid, ignoreCache: true)
                     }
                 }
             } catch {
+                let message = Self.message(for: PromoCodeService.outcome(forErrorDescription: (error as NSError).userInfo[NSLocalizedDescriptionKey] as? String))
                 await MainActor.run {
                     isRedeeming = false
-                    promoMessage = Self.message(for: PromoCodeService.outcome(forErrorDescription: (error as NSError).userInfo[NSLocalizedDescriptionKey] as? String))
+                    promoMessage = message
                 }
             }
         }

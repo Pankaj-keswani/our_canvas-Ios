@@ -34,7 +34,7 @@ final class PromoCodeService {
         let codeRef = db.collection("premium_codes").document(normalized)
         let userRef = db.collection("users").document(uid)
 
-        let result: String? = try await db.runTransaction { transaction, errorPointer in
+        let result: Any? = try await db.runTransaction { transaction, errorPointer in
             guard let codeSnapshot = try? transaction.getDocument(codeRef) else {
                 errorPointer?.pointee = NSError(domain: "Promo", code: 404,
                                                 userInfo: [NSLocalizedDescriptionKey: "invalid"])
@@ -99,7 +99,7 @@ final class PromoCodeService {
             return "success"
         }
 
-        return result == "success" ? .success(days: 0) : .invalidCode
+        return (result as? String) == "success" ? .success(days: 0) : .invalidCode
     }
 
     /// Maps transaction error keys to outcomes (tested).

@@ -197,7 +197,9 @@ final class StoreManager: ObservableObject {
             for await result in StoreKit.Transaction.updates {
                 if let transaction = try? Self.checkVerified(result) {
                     await transaction.finish()
-                    await self?.refreshEntitlements()
+                    if let strongSelf = self {
+                        await strongSelf.refreshEntitlements()
+                    }
                 }
             }
         }

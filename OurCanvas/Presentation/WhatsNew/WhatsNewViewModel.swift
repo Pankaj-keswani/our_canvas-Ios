@@ -84,11 +84,10 @@ final class WhatsNewViewModel: ObservableObject {
 
     private func refresh(local: Int?, remote: Int?) {
         if let local {
-            let store = currentUserStore()
             // Keep the local mirror at least as high as the server's version
             // (cross-device sync-in).
-            if let remote, remote > local {
-                store?.whatsNewSeenVersion = remote
+            if let remote, remote > local, var store = currentUserStore() {
+                store.whatsNewSeenVersion = remote
             }
         }
         let store = currentUserStore()
@@ -106,7 +105,9 @@ final class WhatsNewViewModel: ObservableObject {
     /// Mark the current version seen: local mirror + single-field Firestore update.
     func markCurrentSeen() {
         let version = WhatsNewContent.CURRENT_VERSION
-        currentUserStore()?.whatsNewSeenVersion = version
+        if var store = currentUserStore() {
+            store.whatsNewSeenVersion = version
+        }
         seenVersion = version
         hasUnseen = false
 

@@ -26,7 +26,7 @@ struct WalkthroughOverlay: View {
 
     @State private var currentIndex = 0
 
-    private var store: UserScopedStore? {
+    private func makeStore() -> UserScopedStore? {
         guard let uid = Auth.auth().currentUser?.uid else { return nil }
         return UserScopedStore(uid: uid)
     }
@@ -78,12 +78,14 @@ struct WalkthroughOverlay: View {
         }
         .onAppear {
             // Resume where the user left off.
-            currentIndex = min(store?.walkthroughStep ?? 0, WalkthroughOverlay.steps.count - 1)
+            currentIndex = min(makeStore()?.walkthroughStep ?? 0, WalkthroughOverlay.steps.count - 1)
         }
     }
 
     private func advance() {
-        store?.walkthroughStep = currentIndex + 1
+        if var store = makeStore() {
+            store.walkthroughStep = currentIndex + 1
+        }
         if currentIndex >= WalkthroughOverlay.steps.count - 1 {
             finish()
         } else {
@@ -92,7 +94,9 @@ struct WalkthroughOverlay: View {
     }
 
     private func finish() {
-        store?.walkthroughStep = WalkthroughOverlay.steps.count
+        if var store = makeStore() {
+            store.walkthroughStep = WalkthroughOverlay.steps.count
+        }
         isPresented = false
     }
 }
