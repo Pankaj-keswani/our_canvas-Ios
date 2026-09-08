@@ -103,13 +103,21 @@ enum BrushType: String, CaseIterable, Hashable {
 
 /// A single stroke. Coordinates are in CANVAS UNITS (the document coordinate space,
 /// e.g. 0..1080), y grows downward. Color is an ARGB integer (Android Color-int parity).
+/// `ownerId` is local-only metadata (Co-Draw stroke ownership); never serialized.
 struct Stroke: Equatable {
     var points: [CGPoint] = []
     var color: Int = 0xFF000000
     var width: CGFloat = 12
     var brush: BrushType = .basic
+    var ownerId: String? = nil
 
     var isEraser: Bool { brush == .eraser }
+
+    /// Serialized equality ignores local-only ownership metadata.
+    static func == (lhs: Stroke, rhs: Stroke) -> Bool {
+        lhs.points == rhs.points && lhs.color == rhs.color
+            && lhs.width == rhs.width && lhs.brush == rhs.brush
+    }
 }
 
 /// Single source of truth for the active drawing tool. Assigning a brush exits eraser
@@ -136,28 +144,32 @@ enum Tool: Equatable {
 }
 
 // MARK: - Persistent elements
+// Coordinates are ABSOLUTE canvas units and rotation is DEGREES — matching the
+// Android serialization verified against SketchCanvasView.kt (fixture validation).
 
-/// Sticker element. Position is normalized (0...1) relative to the canvas so it scales
-/// across devices; `scale` multiplies a base size; `rotation` is radians.
+/// Sticker element. `scale` multiplies a base size.
 struct StickerElement: Identifiable, Equatable {
     var id: UUID = UUID()
     var emoji: String = "⭐️"
-    var x: CGFloat = 0.5
-    var y: CGFloat = 0.5
+    var x: CGFloat = 540
+    var y: CGFloat = 540
     var scale: CGFloat = 1.0
-    var rotation: CGFloat = 0.0
+    var rotationDegrees: CGFloat = 0.0
 }
 
-/// Text element. `fontSize` is in canvas units; color is ARGB int; position normalized.
+/// Text element. `fontSize` is in canvas units; color is ARGB int.
 struct TextElement: Identifiable, Equatable {
     var id: UUID = UUID()
     var text: String = "Hello!"
     var color: Int = 0xFF000000
     var fontSize: CGFloat = 72
-    var x: CGFloat = 0.5
-    var y: CGFloat = 0.5
+    var x: CGFloat = 540
+    var y: CGFloat = 540
     var scale: CGFloat = 1.0
-    var rotation: CGFloat = 0.0
+    var rotationDegrees: CGFloat = 0.0
+    var isBold: Bool = false
+    var isItalic: Bool = false
+    var opacity: Double = 1.0
 }
 
 enum CanvasElement: Equatable {
@@ -171,7 +183,8 @@ enum CanvasElement: Equatable {
         }
     }
 
-    var normalizedPosition: CGPoint {
+    /// Absolute canvas-space position.
+    var canvasPosition: CGPoint {
         switch self {
         case .sticker(let s): return CGPoint(x: s.x, y: s.y)
         case .text(let t): return CGPoint(x: t.x, y: t.y)

@@ -11,18 +11,18 @@ struct ParsedDrawing {
 
 /// Cross-platform stroke/element serialization.
 ///
-/// Logical format (Android-compatible):
-/// `{"cw":1080,"ch":1080,"bg":{"t":"plain","c":"#FFFFFF"},"strokes":[{"c":<argb-int>,"w":<double>,"b":<android-brush-id>,"p":[[x,y],...]}]}`
+/// Stroke envelope VERIFIED against the Android `SketchCanvasView.exportStrokeData`
+/// fixture (workspace artifact, Phase 2 §0):
+/// `{"cw":1080,"ch":1080,"strokes":[{"c":<argb-int>,"w":<double>,"b":<brush-ordinal>,"p":[[x,y],...]}]}`
+///
+/// Stickers (verified): `[{"id":"<uuid>","t":"⭐️","x":<abs-canvas>,"y":<abs>,"s":<scale>,"r":<degrees>}]`
+/// Text (verified): `[{"id":"<uuid>","txt":"hi","x":..,"y":..,"s":..,"r":<deg>,"sz":<fontSize>,"c":<argb>,"fn":"Sans","b":false,"i":false,"a":"Center","o":1.0,"e":"Normal"}]`
 ///
 /// - Color: ARGB integer (Android Color-int parity).
-/// - Width: canvas units.
-/// - Points: ordered [x, y] pairs in canvas units, y-down.
+/// - Width/coordinates: canvas units; element rotation: degrees.
 /// - Eraser: brush id 13; color irrelevant.
-/// - `bg` is optional on decode (older documents).
-///
-/// Stickers: `[{"id":"uuid","e":"⭐️","x":0.5,"y":0.5,"s":1,"r":0}]`
-/// Text:     `[{"id":"uuid","t":"hi","c":-16777216,"f":72,"x":0.5,"y":0.5,"s":1,"r":0}]`
-/// Decoding tolerates missing keys and unknown fields.
+/// - `bg` is an iOS extension on the root (older Android documents omit it; decoders ignore it).
+/// - Decoding tolerates missing keys, unknown fields, blank/"[]"/"{}" inputs.
 enum StrokeSerializer {
 
     // MARK: - Stroke data
@@ -56,7 +56,9 @@ enum StrokeSerializer {
 
     static func decode(_ json: String) -> ParsedDrawing {
         var parsed = ParsedDrawing()
-        guard let data = json.data(using: .utf8),
+        let trimmed = json.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, trimmed != "[]", trimmed != "{}" else { return parsed }
+        guard let data = trimmed.data(using: .utf8),
               let root = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else {
             return parsed
         }
@@ -75,7 +77,7 @@ enum StrokeSerializer {
         guard let strokesRaw = root["strokes"] as? [[String: Any]] else { return parsed }
         for strokeRaw in strokesRaw {
             var stroke = Stroke()
-            stroke.color = FieldCast.int(strokeRaw["c"]) ?? 0xFF000000
+            stroke.color = StrokeColor.canonical(FieldCast.int(strokeRaw["c"]) ?? 0xFF000000)
             stroke.width = CGFloat(FieldCast.double(strokeRaw["w"]) ?? 12)
             stroke.brush = BrushType.from(androidID: FieldCast.int(strokeRaw["b"]) ?? 0)
             stroke.points = decodePoints(strokeRaw["p"])
@@ -102,17 +104,17 @@ enum StrokeSerializer {
         return points
     }
 
-    // MARK: - Sticker data
+    // MARK: - Sticker data (Android field names: id/t/x/y/s/r — absolute coords, degrees)
 
     static func encodeStickers(_ stickers: [StickerElement]) -> String {
         let array: [[String: Any]] = stickers.map { sticker in
             [
                 "id": sticker.id.uuidString,
-                "e": sticker.emoji,
+                "t": sticker.emoji,
                 "x": Double(sticker.x),
                 "y": Double(sticker.y),
                 "s": Double(sticker.scale),
-                "r": Double(sticker.rotation),
+                "r": Double(sticker.rotationDegrees),
             ]
         }
         guard let data = try? JSONSerialization.data(withJSONObject: array),
@@ -121,38 +123,47 @@ enum StrokeSerializer {
     }
 
     static func decodeStickers(_ json: String) -> [StickerElement] {
-        guard let data = json.data(using: .utf8),
+        let trimmed = json.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, trimmed != "[]" else { return [] }
+        guard let data = trimmed.data(using: .utf8),
               let array = (try? JSONSerialization.jsonObject(with: data)) as? [[String: Any]] else {
             return []
         }
         return array.compactMap { raw in
-            guard let emoji = FieldCast.string(raw["e"]) else { return nil }
+            // Android field "t"; legacy iOS field "e" tolerated.
+            guard let emoji = FieldCast.string(raw["t"]) ?? FieldCast.string(raw["e"]) else { return nil }
             var sticker = StickerElement()
             if let idString = FieldCast.string(raw["id"]), let uuid = UUID(uuidString: idString) {
                 sticker.id = uuid
             }
             sticker.emoji = emoji
-            sticker.x = CGFloat(FieldCast.double(raw["x"]) ?? 0.5)
-            sticker.y = CGFloat(FieldCast.double(raw["y"]) ?? 0.5)
+            sticker.x = CGFloat(FieldCast.double(raw["x"]) ?? 540)
+            sticker.y = CGFloat(FieldCast.double(raw["y"]) ?? 540)
             sticker.scale = CGFloat(FieldCast.double(raw["s"]) ?? 1.0)
-            sticker.rotation = CGFloat(FieldCast.double(raw["r"]) ?? 0.0)
+            sticker.rotationDegrees = CGFloat(FieldCast.double(raw["r"]) ?? 0.0)
             return sticker
         }
     }
 
-    // MARK: - Text data
+    // MARK: - Text data (Android field names: id/txt/x/y/s/r/sz/c + style extras)
 
     static func encodeTexts(_ texts: [TextElement]) -> String {
-        let array: [[String: Any]] = texts.map { text in
+        let array: [[String: Any]] = texts.map { element in
             [
-                "id": text.id.uuidString,
-                "t": text.text,
-                "c": text.color,
-                "f": Double(text.fontSize),
-                "x": Double(text.x),
-                "y": Double(text.y),
-                "s": Double(text.scale),
-                "r": Double(text.rotation),
+                "id": element.id.uuidString,
+                "txt": element.text,
+                "x": Double(element.x),
+                "y": Double(element.y),
+                "s": Double(element.scale),
+                "r": Double(element.rotationDegrees),
+                "sz": Double(element.fontSize),
+                "c": element.color,
+                "fn": "Sans",
+                "b": element.isBold,
+                "i": element.isItalic,
+                "a": "Center",
+                "o": element.opacity,
+                "e": "Normal",
             ]
         }
         guard let data = try? JSONSerialization.data(withJSONObject: array),
@@ -161,23 +172,29 @@ enum StrokeSerializer {
     }
 
     static func decodeTexts(_ json: String) -> [TextElement] {
-        guard let data = json.data(using: .utf8),
+        let trimmed = json.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, trimmed != "[]" else { return [] }
+        guard let data = trimmed.data(using: .utf8),
               let array = (try? JSONSerialization.jsonObject(with: data)) as? [[String: Any]] else {
             return []
         }
         return array.compactMap { raw in
-            guard let text = FieldCast.string(raw["t"]) else { return nil }
+            // Android field "txt"; legacy iOS field "t" tolerated.
+            guard let text = FieldCast.string(raw["txt"]) ?? FieldCast.string(raw["t"]) else { return nil }
             var element = TextElement()
             if let idString = FieldCast.string(raw["id"]), let uuid = UUID(uuidString: idString) {
                 element.id = uuid
             }
             element.text = text
-            element.color = FieldCast.int(raw["c"]) ?? 0xFF000000
-            element.fontSize = CGFloat(FieldCast.double(raw["f"]) ?? 72)
-            element.x = CGFloat(FieldCast.double(raw["x"]) ?? 0.5)
-            element.y = CGFloat(FieldCast.double(raw["y"]) ?? 0.5)
+            element.color = StrokeColor.canonical(FieldCast.int(raw["c"]) ?? 0xFF000000)
+            element.fontSize = CGFloat(FieldCast.double(raw["sz"]) ?? 48)
+            element.x = CGFloat(FieldCast.double(raw["x"]) ?? 540)
+            element.y = CGFloat(FieldCast.double(raw["y"]) ?? 540)
             element.scale = CGFloat(FieldCast.double(raw["s"]) ?? 1.0)
-            element.rotation = CGFloat(FieldCast.double(raw["r"]) ?? 0.0)
+            element.rotationDegrees = CGFloat(FieldCast.double(raw["r"]) ?? 0.0)
+            element.isBold = FieldCast.bool(raw["b"]) ?? false
+            element.isItalic = FieldCast.bool(raw["i"]) ?? false
+            element.opacity = FieldCast.double(raw["o"]) ?? 1.0
             return element
         }
     }
@@ -186,6 +203,13 @@ enum StrokeSerializer {
 // MARK: - Color helpers (ARGB int <-> hex <-> components)
 
 enum StrokeColor {
+    /// Canonical unsigned 32-bit ARGB form. Android colors arrive as signed Int32
+    /// (e.g. -65536 == 0xFFFF0000); JSON round-trips may flip the sign either way,
+    /// so decoding normalizes to the unsigned representation and encoding keeps it.
+    static func canonical(_ value: Int) -> Int {
+        value < 0 ? Int(UInt32(bitPattern: Int32(truncatingIfNeeded: value))) : value
+    }
+
     static func hexString(fromARGB value: Int) -> String {
         let r = (value >> 16) & 0xFF
         let g = (value >> 8) & 0xFF

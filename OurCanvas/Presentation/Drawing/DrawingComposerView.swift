@@ -7,12 +7,18 @@ struct DrawingComposerView: View {
     @Environment(\.dismiss) var dismiss
 
     @StateObject private var engine = DrawingEngine()
+    @StateObject private var coDraw: CoDrawViewModel
     @State private var isSending = false
     @State private var activeAlert: ComposerAlert?
     @State private var shareItem: SharedImage?
     @State private var editingText: TextElement?
 
     private let drawingRepo = DrawingRepository()
+
+    init(group: Group) {
+        self.group = group
+        _coDraw = StateObject(wrappedValue: CoDrawViewModel(group: group))
+    }
 
     private var gate: PremiumGate {
         PremiumGate(isPro: UserRepository.shared.currentUserProfile?.isPro ?? false)
@@ -34,17 +40,48 @@ struct DrawingComposerView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            DrawingCanvasView(engine: engine) { tappedID in
-                handleElementTap(tappedID)
+            // Co-Draw entry point (chip with live participant count + BETA badge).
+            HStack {
+                CoDrawChip(viewModel: coDraw)
+                Spacer()
+                if coDraw.isActive {
+                    Label("Live", systemImage: "dot.radiowaves.left.and.right")
+                        .font(.caption2.weight(.bold))
+                        .foregroundColor(BrandColor.secondary)
+                }
             }
-            .padding(.horizontal, 8)
-            .padding(.top, 8)
+            .padding(.horizontal, 12)
+            .padding(.top, 4)
+
+            ZStack {
+                DrawingCanvasView(engine: engine) { tappedID in
+                    handleElementTap(tappedID)
+                }
+                .padding(.horizontal, 8)
+
+                // Progressive remote-stroke preview layer (live Co-Draw).
+                if let remoteInk = coDraw.remoteInkImage {
+                    Image(uiImage: remoteInk)
+                        .resizable()
+                        .scaledToFit()
+                        .allowsHitTesting(false)
+                        .padding(.horizontal, 8)
+                }
+            }
 
             DrawingToolbar(engine: engine,
                            gate: gate,
                            onUpgradeTapped: { activeAlert = .upgradeStub },
                            onSaveToDevice: { saveToDevice() },
-                           onShare: { share() })
+                           onShare: { share() },
+                           onUndo: { coDraw.localUndo() },
+                           onClear: { coDraw.localClear() })
+        }
+        .onAppear {
+            coDraw.connect(engine: engine)
+        }
+        .onDisappear {
+            coDraw.leave()
         }
         .navigationTitle("Drawing for \(group.groupName)")
         .navigationBarTitleDisplayMode(.inline)
@@ -109,7 +146,9 @@ struct DrawingComposerView: View {
         }
 
         isSending = true
-        let recipients = group.memberIds.filter { $0 != currentUser.uid }
+        // Android parity (fixture-verified): recipients = ALL circle memberIds;
+        // drawingData = PNG base64.
+        let recipients = group.memberIds
         let sentStrokes = engine.strokes
 
         Task {
@@ -128,8 +167,9 @@ struct DrawingComposerView: View {
                     return
                 }
 
-                // Render background + ink + stickers + text into the exported bitmap.
-                guard let base64Image = engine.exportCompositeJPEGBase64() else {
+                // Render background + ink + stickers + text into the exported bitmap (PNG,
+                // matching the Android send path).
+                guard let base64Image = engine.exportCompositePNGBase64() else {
                     throw AppError.underlying("We couldn't render your drawing. Please try again.")
                 }
 

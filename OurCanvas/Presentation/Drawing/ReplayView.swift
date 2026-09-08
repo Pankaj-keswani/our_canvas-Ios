@@ -16,6 +16,9 @@ final class ReplayController: ObservableObject {
     let texts: [TextElement]
     let strokeCount: Int
 
+    /// Longest canvas side for mapping absolute element coordinates onto the display.
+    var canvasSide: CGFloat { max(canvasSize.width, canvasSize.height) }
+
     private let strokes: [Stroke]
     private let canvasSize: CGSize
     private let ink: InkCanvas
@@ -86,11 +89,17 @@ struct ReplayView: View {
                         }
                     }
                     ForEach(controller.stickers) { sticker in
-                        StickerElementView(sticker: sticker, displaySize: size, isSelected: false)
+                        StickerElementView(sticker: sticker,
+                                           displaySize: size,
+                                           canvasSize: controller.canvasSide,
+                                           isSelected: false)
                             .allowsHitTesting(false)
                     }
                     ForEach(controller.texts) { text in
-                        TextElementView(text: text, displaySize: size, isSelected: false)
+                        TextElementView(text: text,
+                                        displaySize: size,
+                                        canvasSize: controller.canvasSide,
+                                        isSelected: false)
                             .allowsHitTesting(false)
                     }
                 }

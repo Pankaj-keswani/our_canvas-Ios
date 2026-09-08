@@ -306,56 +306,86 @@ final class UndoRedoTests: XCTestCase {
     }
 }
 
-// MARK: - E. Element serialization
+// MARK: - E. Element serialization (Android field names, verified via fixture)
 
 final class ElementSerializationTests: XCTestCase {
-    func testStickerRoundTrip() {
-        var sticker = StickerElement(emoji: "🌈", x: 0.25, y: 0.75)
+    func testStickerRoundTripWithAndroidFields() {
+        var sticker = StickerElement(emoji: "🌈", x: 270, y: 810)
         sticker.scale = 1.75
-        sticker.rotation = 0.6
+        sticker.rotationDegrees = 0.6
         let json = StrokeSerializer.encodeStickers([sticker])
+        // Android envelope keys: id/t/x/y/s/r with absolute coordinates.
+        XCTAssertTrue(json.contains("\"t\":\"🌈\""))
+        XCTAssertFalse(json.contains("\"e\""))
         let decoded = StrokeSerializer.decodeStickers(json)
         XCTAssertEqual(decoded.count, 1)
         XCTAssertEqual(decoded[0].emoji, "🌈")
         XCTAssertEqual(decoded[0].id, sticker.id)
-        XCTAssertEqual(decoded[0].x, 0.25, accuracy: 0.001)
-        XCTAssertEqual(decoded[0].y, 0.75, accuracy: 0.001)
+        XCTAssertEqual(decoded[0].x, 270, accuracy: 0.001)
+        XCTAssertEqual(decoded[0].y, 810, accuracy: 0.001)
         XCTAssertEqual(decoded[0].scale, 1.75, accuracy: 0.001)
-        XCTAssertEqual(decoded[0].rotation, 0.6, accuracy: 0.001)
+        XCTAssertEqual(decoded[0].rotationDegrees, 0.6, accuracy: 0.001)
     }
 
-    func testTextRoundTrip() {
+    func testDecodesAndroidProducedStickerFixture() {
+        let androidJson = "[{\"id\":\"6f9619ff-8b86-d011-b42d-00cf4fc964ff\",\"t\":\"⭐️\",\"x\":540.0,\"y\":430.0,\"s\":1.5,\"r\":45.0}]"
+        let decoded = StrokeSerializer.decodeStickers(androidJson)
+        XCTAssertEqual(decoded.count, 1)
+        XCTAssertEqual(decoded[0].emoji, "⭐️")
+        XCTAssertEqual(decoded[0].x, 540, accuracy: 0.001)
+        XCTAssertEqual(decoded[0].rotationDegrees, 45, accuracy: 0.001)
+    }
+
+    func testTextRoundTripWithAndroidFields() {
         var text = TextElement(text: "Hello doodle!", color: 0xFF3B82F6, fontSize: 88)
-        text.x = 0.4
-        text.y = 0.6
-        text.rotation = -0.3
+        text.x = 432
+        text.y = 648
+        text.rotationDegrees = -15
+        text.isBold = true
+        text.opacity = 0.9
         let json = StrokeSerializer.encodeTexts([text])
+        XCTAssertTrue(json.contains("\"txt\":\"Hello doodle!\""))
+        XCTAssertTrue(json.contains("\"sz\""))
         let decoded = StrokeSerializer.decodeTexts(json)
         XCTAssertEqual(decoded.count, 1)
         XCTAssertEqual(decoded[0].text, "Hello doodle!")
         XCTAssertEqual(decoded[0].color, 0xFF3B82F6)
         XCTAssertEqual(decoded[0].fontSize, 88, accuracy: 0.001)
         XCTAssertEqual(decoded[0].id, text.id)
+        XCTAssertEqual(decoded[0].isBold, true)
+        XCTAssertEqual(decoded[0].opacity ?? 1, 0.9, accuracy: 0.001)
+    }
+
+    func testDecodesAndroidProducedTextFixture() {
+        let androidJson = "[{\"id\":\"abc\",\"txt\":\"hi\",\"x\":100.0,\"y\":200.0,\"s\":1.0,\"r\":0.0,\"sz\":48.0,\"c\":-16777216,\"fn\":\"Sans\",\"b\":false,\"i\":false,\"a\":\"Center\",\"o\":1.0,\"e\":\"Normal\"}]"
+        let decoded = StrokeSerializer.decodeTexts(androidJson)
+        XCTAssertEqual(decoded.count, 1)
+        XCTAssertEqual(decoded[0].text, "hi")
+        XCTAssertEqual(decoded[0].fontSize, 48, accuracy: 0.001)
+        XCTAssertEqual(decoded[0].x, 100, accuracy: 0.001)
     }
 
     func testDecodeToleratesUnknownFieldsAndMissingKeys() {
         let json = """
-        [{"e":"⭐️","futureField":true,"x":0.5},{"t":"hi","c":1}]
+        [{"t":"⭐️","futureField":true,"x":540},{"txt":"hi","c":1}]
         """
         let stickers = StrokeSerializer.decodeStickers(json)
         XCTAssertEqual(stickers.count, 1)
-        XCTAssertEqual(stickers[0].y, 0.5, accuracy: 0.001, "missing y falls back to default")
+        XCTAssertEqual(stickers[0].y, 540, accuracy: 0.001, "missing y falls back to default")
 
         let texts = StrokeSerializer.decodeTexts(json)
         XCTAssertEqual(texts.count, 1)
-        XCTAssertEqual(texts[0].fontSize, 72, accuracy: 0.001)
+        XCTAssertEqual(texts[0].fontSize, 48, accuracy: 0.001)
     }
 
-    func testEmptyArraysRoundTrip() {
+    func testEmptyAndBlankInputsRoundTrip() {
         XCTAssertEqual(StrokeSerializer.encodeStickers([]), "[]")
         XCTAssertEqual(StrokeSerializer.encodeTexts([]), "[]")
         XCTAssertTrue(StrokeSerializer.decodeStickers("").isEmpty)
+        XCTAssertTrue(StrokeSerializer.decodeStickers("[]").isEmpty)
         XCTAssertTrue(StrokeSerializer.decodeTexts("not json").isEmpty)
+        XCTAssertTrue(StrokeSerializer.decode("").strokes.isEmpty)
+        XCTAssertTrue(StrokeSerializer.decode("[]").strokes.isEmpty)
     }
 }
 

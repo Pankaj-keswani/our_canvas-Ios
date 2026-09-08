@@ -48,6 +48,11 @@ final class DrawingEngine: ObservableObject {
     @Published private(set) var backgroundImage: UIImage
 
     private(set) var liveStroke: Stroke?
+
+    /// Live stroke observer (Co-Draw streaming): fired on every point batch and once
+    /// on completion with `finished == true`.
+    var onStrokeProgress: ((Stroke, Bool) -> Void)?
+
     private var ink: InkCanvas
     private var undoStack: [DrawingOperation] = []
     private var redoStack: [DrawingOperation] = []
@@ -108,12 +113,14 @@ final class DrawingEngine: ObservableObject {
         stroke.points.append(point)
         liveStroke = stroke
         renderLiveStroke()
+        onStrokeProgress?(stroke, false)
     }
 
     func endStroke() {
         guard let stroke = liveStroke else { return }
         liveStroke = nil
         liveStrokeImage = nil
+        onStrokeProgress?(stroke, true)
         apply(.addStroke(stroke))
     }
 
@@ -204,15 +211,38 @@ final class DrawingEngine: ObservableObject {
     func element(at canvasPoint: CGPoint) -> CanvasElement? {
         let threshold: CGFloat = 140
         for element in allElements.reversed() {
-            let position = element.normalizedPosition
-            let elementPoint = CGPoint(x: position.x * canvasSize.width, y: position.y * canvasSize.height)
-            let dx = canvasPoint.x - elementPoint.x
-            let dy = canvasPoint.y - elementPoint.y
+            let position = element.canvasPosition
+            let dx = canvasPoint.x - position.x
+            let dy = canvasPoint.y - position.y
             if sqrt(dx * dx + dy * dy) < threshold {
                 return element
             }
         }
         return nil
+    }
+
+    // MARK: - Co-Draw remote stroke integration
+    // Remote strokes join the document WITHOUT local undo entries — synchronized
+    // undo/clear arrive as broadcast operations instead.
+
+    func appendRemoteStroke(_ stroke: Stroke) {
+        strokes.append(stroke)
+        ink.add(stroke)
+        inkImage = ink.image
+    }
+
+    /// Removes the latest stroke owned by `ownerId` (nil owner = any) — used when a
+    /// remote participant broadcasts an undo. No local undo entry is recorded.
+    func removeLastStroke(ownerId: String?) {
+        guard let index = strokes.lastIndex(where: { $0.ownerId == ownerId }) else { return }
+        strokes.remove(at: index)
+        rebuildInkAfterModelChange()
+    }
+
+    /// Applies a remote clear broadcast without touching the local undo history.
+    func applyRemoteClear() {
+        strokes.removeAll()
+        rebuildInkAfterModelChange()
     }
 
     // MARK: - Undo / redo
@@ -369,6 +399,13 @@ final class DrawingEngine: ObservableObject {
                                        texts: texts,
                                        canvasSize: canvasSize,
                                        outputPixels: Int(canvasSize.width))
+    }
+
+    /// Android send-path parity: PNG base64 (fixture-verified against DrawingRepository.kt).
+    func exportCompositePNGBase64() -> String? {
+        let image = exportCompositePNG()
+        guard let data = image.pngData() else { return nil }
+        return data.base64EncodedString()
     }
 
     func exportCompositeJPEGBase64(quality: CGFloat = 0.85) -> String? {

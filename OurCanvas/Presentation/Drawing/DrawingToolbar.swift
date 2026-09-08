@@ -8,6 +8,10 @@ struct DrawingToolbar: View {
     var onUpgradeTapped: () -> Void
     var onSaveToDevice: () -> Void
     var onShare: () -> Void
+    /// When a live Co-Draw is active the composer routes undo/clear through these so
+    /// the operation is broadcast; nil falls back to local engine calls.
+    var onUndo: (() -> Void)? = nil
+    var onClear: (() -> Void)? = nil
 
     enum Panel: String, CaseIterable, Identifiable {
         case brush, background, stickers, text, settings
@@ -263,7 +267,7 @@ struct DrawingToolbar: View {
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 48), spacing: 10)], spacing: 10) {
                 ForEach(DrawingPalette.stickerEmojis, id: \.self) { emoji in
                     Button {
-                        let sticker = StickerElement(emoji: emoji, x: 0.5, y: 0.4, scale: 1.0, rotation: 0)
+                        let sticker = StickerElement(emoji: emoji, x: 540, y: 432, scale: 1.0, rotationDegrees: 0)
                         engine.addSticker(sticker)
                     } label: {
                         Text(emoji)
@@ -285,7 +289,7 @@ struct DrawingToolbar: View {
                     let element = TextElement(text: trimmed,
                                               color: engine.strokeColorARGB,
                                               fontSize: CGFloat(newTextFontSize),
-                                              x: 0.5, y: 0.5, scale: 1.0, rotation: 0)
+                                              x: 540, y: 540, scale: 1.0, rotationDegrees: 0)
                     engine.addText(element)
                     newText = ""
                 }
@@ -307,7 +311,11 @@ struct DrawingToolbar: View {
         VStack(spacing: 10) {
             HStack(spacing: 12) {
                 ToolbarActionButton(systemImage: "arrow.uturn.backward", title: "Undo") {
-                    engine.undo()
+                    if let onUndo {
+                        onUndo()
+                    } else {
+                        engine.undo()
+                    }
                 }
                 .disabled(!engine.canUndo)
 
@@ -317,7 +325,11 @@ struct DrawingToolbar: View {
                 .disabled(!engine.canRedo)
 
                 ToolbarActionButton(systemImage: "trash", title: "Clear") {
-                    engine.clearAll()
+                    if let onClear {
+                        onClear()
+                    } else {
+                        engine.clearAll()
+                    }
                 }
                 .foregroundColor(.red)
             }

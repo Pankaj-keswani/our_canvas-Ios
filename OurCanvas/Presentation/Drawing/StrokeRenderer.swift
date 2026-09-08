@@ -82,10 +82,10 @@ enum StrokeRenderer {
 
             let scale = size.width / max(canvasSize.width, 1)
             for sticker in stickers {
-                drawSticker(sticker, ctx: ctx, scale: scale, outputSize: size)
+                drawSticker(sticker, ctx: ctx, scale: scale)
             }
             for text in texts {
-                drawText(text, ctx: ctx, scale: scale, outputSize: size)
+                drawText(text, ctx: ctx, scale: scale)
             }
         }
     }
@@ -496,34 +496,38 @@ enum StrokeRenderer {
 
     static let stickerBaseFontSize: CGFloat = 140
 
-    private static func drawSticker(_ sticker: StickerElement, ctx: CGContext, scale: CGFloat, outputSize: CGSize) {
+    private static func drawSticker(_ sticker: StickerElement, ctx: CGContext, scale: CGFloat) {
         let fontSize = stickerBaseFontSize * sticker.scale * scale
         guard fontSize > 1 else { return }
         let attributes: [NSAttributedString.Key: Any] = [.font: UIFont.systemFont(ofSize: fontSize)]
         let text = sticker.emoji as NSString
         let textSize = text.size(withAttributes: attributes)
         ctx.saveGState()
-        ctx.translateBy(x: sticker.x * outputSize.width, y: sticker.y * outputSize.height)
-        ctx.rotate(by: sticker.rotation)
+        ctx.translateBy(x: sticker.x * scale, y: sticker.y * scale)
+        ctx.rotate(by: sticker.rotationDegrees * .pi / 180)
         UIGraphicsPushContext(ctx)
         text.draw(at: CGPoint(x: -textSize.width / 2, y: -textSize.height / 2), withAttributes: attributes)
         UIGraphicsPopContext()
         ctx.restoreGState()
     }
 
-    private static func drawText(_ element: TextElement, ctx: CGContext, scale: CGFloat, outputSize: CGSize) {
+    private static func drawText(_ element: TextElement, ctx: CGContext, scale: CGFloat) {
         let fontSize = element.fontSize * element.scale * scale
         guard fontSize > 1 else { return }
         let comps = StrokeColor.components(ofARGB: element.color)
+        let weight: UIFont.Weight = element.isBold ? .bold : .semibold
+        let baseFont = UIFont.systemFont(ofSize: fontSize, weight: weight)
+        let font = element.isItalic ? UIFont.italicSystemFont(ofSize: fontSize) : baseFont
         let attributes: [NSAttributedString.Key: Any] = [
-            .font: UIFont.systemFont(ofSize: fontSize, weight: .semibold),
-            .foregroundColor: UIColor(red: comps.r, green: comps.g, blue: comps.b, alpha: 1),
+            .font: font,
+            .foregroundColor: UIColor(red: comps.r, green: comps.g, blue: comps.b, alpha: comps.a),
         ]
         let text = element.text as NSString
         let textSize = text.size(withAttributes: attributes)
         ctx.saveGState()
-        ctx.translateBy(x: element.x * outputSize.width, y: element.y * outputSize.height)
-        ctx.rotate(by: element.rotation)
+        ctx.setAlpha(element.opacity)
+        ctx.translateBy(x: element.x * scale, y: element.y * scale)
+        ctx.rotate(by: element.rotationDegrees * .pi / 180)
         UIGraphicsPushContext(ctx)
         text.draw(at: CGPoint(x: -textSize.width / 2, y: -textSize.height / 2), withAttributes: attributes)
         UIGraphicsPopContext()

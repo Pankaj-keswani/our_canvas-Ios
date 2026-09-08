@@ -115,13 +115,13 @@ struct FeedView: View {
         case .recent:
             recentList
         case .favorites:
-            if viewModel.drawings.filter({ $0.isFavorite }).isEmpty {
+            if viewModel.drawings.filter { $0.isFavorite }.isEmpty {
                 emptyFavorites
             } else {
                 favoritesList
             }
         case .guess:
-            guessPlaceholder
+            GuessGameTabView(group: group)
         }
     }
 
@@ -159,23 +159,6 @@ struct FeedView: View {
                 }
             }
             .padding()
-        }
-    }
-
-    private var guessPlaceholder: some View {
-        VStack(spacing: 12) {
-            Spacer()
-            Image(systemName: "gamecontroller.fill")
-                .font(.system(size: 44))
-                .foregroundStyle(BrandGradient.primary)
-            Text("Guess My Doodle")
-                .font(.headline)
-            Text("Multiplayer doodle guessing arrives in an upcoming update. The race is going to be worth it. ⚡")
-                .font(.subheadline)
-                .foregroundColor(.secondary)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 32)
-            Spacer()
         }
     }
 

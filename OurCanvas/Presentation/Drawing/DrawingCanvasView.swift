@@ -72,9 +72,11 @@ struct DrawingCanvasView: View {
     @ViewBuilder
     private func elementOverlay(size: CGSize) -> some View {
         let side = min(size.width, size.height)
+        let canvasSide = engine.canvasSize.width
         ForEach(engine.stickers) { sticker in
             StickerElementView(sticker: sticker,
                                displaySize: side,
+                               canvasSize: canvasSide,
                                isSelected: engine.selectedElementID == sticker.id)
                 .modifier(ElementGestureModifier(engine: engine,
                                                  element: .sticker(sticker),
@@ -85,6 +87,7 @@ struct DrawingCanvasView: View {
         ForEach(engine.texts) { text in
             TextElementView(text: text,
                             displaySize: side,
+                            canvasSize: canvasSide,
                             isSelected: engine.selectedElementID == text.id)
                 .modifier(ElementGestureModifier(engine: engine,
                                                  element: .text(text),
@@ -96,36 +99,44 @@ struct DrawingCanvasView: View {
 }
 
 // MARK: - Element views
+// Elements store ABSOLUTE canvas coordinates; views map them onto the display side.
 
 struct StickerElementView: View {
     let sticker: StickerElement
     let displaySize: CGFloat
+    let canvasSize: CGFloat
     let isSelected: Bool
 
+    private var displayScale: CGFloat { canvasSize > 0 ? displaySize / canvasSize : 1 }
+
     var body: some View {
-        let fontPointSize = StrokeRenderer.stickerBaseFontSize * sticker.scale * (displaySize / 1080.0)
+        let fontPointSize = StrokeRenderer.stickerBaseFontSize * sticker.scale * displayScale
         return Text(sticker.emoji)
             .font(.system(size: max(8, fontPointSize)))
-            .rotationEffect(.radians(sticker.rotation))
+            .rotationEffect(.degrees(sticker.rotationDegrees))
             .selectionOverlay(isSelected: isSelected)
-            .position(x: sticker.x * displaySize, y: sticker.y * displaySize)
+            .position(x: sticker.x * displayScale, y: sticker.y * displayScale)
     }
 }
 
 struct TextElementView: View {
     let text: TextElement
     let displaySize: CGFloat
+    let canvasSize: CGFloat
     let isSelected: Bool
 
+    private var displayScale: CGFloat { canvasSize > 0 ? displaySize / canvasSize : 1 }
+
     var body: some View {
-        let fontPointSize = text.fontSize * text.scale * (displaySize / 1080.0)
+        let fontPointSize = text.fontSize * text.scale * displayScale
         let comps = StrokeColor.components(ofARGB: text.color)
         return Text(text.text)
-            .font(.system(size: max(8, fontPointSize), weight: .semibold))
-            .foregroundColor(Color(red: comps.r, green: comps.g, blue: comps.b))
-            .rotationEffect(.radians(text.rotation))
+            .font(.system(size: max(8, fontPointSize), weight: text.isBold ? .bold : .semibold))
+            .foregroundColor(Color(red: comps.r, green: comps.g, blue: comps.b).opacity(text.opacity))
+            .italic(text.isItalic)
+            .rotationEffect(.degrees(text.rotationDegrees))
             .selectionOverlay(isSelected: isSelected)
-            .position(x: text.x * displaySize, y: text.y * displaySize)
+            .position(x: text.x * displayScale, y: text.y * displayScale)
     }
 }
 
@@ -179,11 +190,12 @@ private struct ElementGestureModifier: ViewModifier {
                     isDragging = element.id
                     engine.selectElement(id: element.id)
                     dragStart = value.startLocation
-                    elementStart = element.normalizedPosition
+                    elementStart = element.canvasPosition
                 }
                 guard isDragging == element.id else { return }
-                let dx = (value.location.x - dragStart.x) / displaySize
-                let dy = (value.location.y - dragStart.y) / displaySize
+                let canvasScale = displaySize > 0 ? engine.canvasSize.width / displaySize : 1
+                let dx = (value.location.x - dragStart.x) * canvasScale
+                let dy = (value.location.y - dragStart.y) * canvasScale
                 updatePosition(x: elementStart.x + dx, y: elementStart.y + dy)
             }
             .onEnded { _ in
@@ -212,9 +224,9 @@ private struct ElementGestureModifier: ViewModifier {
         RotationGesture()
             .onChanged { value in
                 if rotationStartAngle < 0 {
-                    rotationStartAngle = elementRotation
+                    rotationStartAngle = elementRotationDegrees
                 }
-                updateRotation(rotationStartAngle + value.radians)
+                updateRotationDegrees(rotationStartAngle + value.degrees)
             }
             .onEnded { _ in
                 rotationStartAngle = -1
@@ -231,16 +243,17 @@ private struct ElementGestureModifier: ViewModifier {
         }
     }
 
-    private var elementRotation: CGFloat {
+    private var elementRotationDegrees: CGFloat {
         switch element {
-        case .sticker(let s): return s.rotation
-        case .text(let t): return t.rotation
+        case .sticker(let s): return s.rotationDegrees
+        case .text(let t): return t.rotationDegrees
         }
     }
 
     private func updatePosition(x: CGFloat, y: CGFloat) {
-        let clampedX = min(max(x, 0.02), 0.98)
-        let clampedY = min(max(y, 0.02), 0.98)
+        let canvasSide = engine.canvasSize.width
+        let clampedX = min(max(x, 20), canvasSide - 20)
+        let clampedY = min(max(y, 20), canvasSide - 20)
         switch element {
         case .sticker(let sticker):
             var updated = sticker
@@ -269,15 +282,15 @@ private struct ElementGestureModifier: ViewModifier {
         }
     }
 
-    private func updateRotation(_ radians: CGFloat) {
+    private func updateRotationDegrees(_ degrees: CGFloat) {
         switch element {
         case .sticker(let sticker):
             var updated = sticker
-            updated.rotation = radians
+            updated.rotationDegrees = degrees
             engine.liveUpdateElement(.sticker(updated))
         case .text(let text):
             var updated = text
-            updated.rotation = radians
+            updated.rotationDegrees = degrees
             engine.liveUpdateElement(.text(updated))
         }
     }
