@@ -461,16 +461,17 @@ enum StrokeRenderer {
         case .grid:
             ctx.setStrokeColor(red: 0, green: 0, blue: 0, alpha: 0.10)
             ctx.setLineWidth(0.5)
+            ctx.beginPath()
             var x: CGFloat = spacing
             while x < canvasRect.width {
-                ctx.moveTo(x: x, y: 0)
-                ctx.addLineTo(x: x, y: canvasRect.height)
+                ctx.move(to: CGPoint(x: x, y: 0))
+                ctx.addLine(to: CGPoint(x: x, y: canvasRect.height))
                 x += spacing
             }
             var y: CGFloat = spacing
             while y < canvasRect.height {
-                ctx.moveTo(x: 0, y: y)
-                ctx.addLineTo(x: canvasRect.width, y: y)
+                ctx.move(to: CGPoint(x: 0, y: y))
+                ctx.addLine(to: CGPoint(x: canvasRect.width, y: y))
                 y += spacing
             }
             ctx.strokePath()
