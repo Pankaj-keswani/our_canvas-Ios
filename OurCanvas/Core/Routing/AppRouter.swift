@@ -145,7 +145,8 @@ final class AppRouter: ObservableObject {
 
     func completeOnboarding() {
         guard let uid = currentUID else { return }
-        UserScopedStore(uid: uid, defaults: defaults).onboardingVersion = Self.currentOnboardingVersion
+        var store = UserScopedStore(uid: uid, defaults: defaults)
+        store.onboardingVersion = Self.currentOnboardingVersion
         state = .ready
         PushTokenStore.shared.userDidAuthenticate(uid: uid)
         Task {

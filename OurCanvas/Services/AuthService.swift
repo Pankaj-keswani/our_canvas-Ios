@@ -79,7 +79,7 @@ enum AuthService {
 
     static func map(_ error: Error) -> AppError {
         let ns = error as NSError
-        if ns.domain == "FIRAuthErrorDomain", let code = AuthErrorCode(rawValue: ns.code) {
+        if ns.domain == "FIRAuthErrorDomain", let code = AuthErrorCode.Code(rawValue: ns.code) {
             switch code {
             case .invalidEmail:
                 return .invalidEmail
