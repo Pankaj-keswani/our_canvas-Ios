@@ -43,7 +43,20 @@ Fill these Info.plist build settings per environment (never commit values):
 Until both are set, Guess judging shows a friendly "not configured" error and the
 game stays in start/spectate states. The worker itself needs **no changes**.
 
-## 5. Firestore rules — the ONE required backend change (production blocker)
+## 5. Cloud Functions — deploy the member-joined trigger (required for the new join notifications)
+
+`functions/index.js` now includes `onGroupMemberAdded` (groups doc updated → detects new
+memberIds → pushes `member_joined` to every other member with `{user} has joined your
+circle {circle name}` copy handled client-side). Clients cannot fan this out themselves
+(rules correctly deny cross-user notification writes), so:
+
+    firebase deploy --only functions:onGroupMemberAdded
+
+Until deployed, joining a circle simply produces no notification. The trigger follows
+the exact patterns of the existing drawing/reaction triggers (region us-central1,
+`sendDataMessage`, stale-token cleanup, Promise.allSettled fan-out).
+
+## 6. Firestore rules — the ONE required backend change (production blocker)
 
 Today premium-field writes are only permitted with `premiumSource` ∈
 {CODE, PLAY, WELCOME_PROMO, test-reset}. The iOS client therefore:
@@ -64,11 +77,11 @@ Today premium-field writes are only permitted with `premiumSource` ∈
 3. iOS then swaps its direct grant attempt for the function call (one-method change
    in `StoreManager.attemptServerGrant`).
 
-## 6. Physical device test procedures
+## 7. Physical device test procedures
 
 Run on iPhone + the Android production build in the SAME Firebase project.
 
-### 6.1 Push end-to-end
+### 7.1 Push end-to-end
 1. Fresh install iOS, sign in, allow notifications. Confirm `users/{uid}.fcmToken` populated in the console.
 2. Android sends a drawing to the shared circle → expect iOS banner (foreground),
    lock-screen notification (background), and after tapping: the circle's feed opens.
@@ -76,18 +89,18 @@ Run on iPhone + the Android production build in the SAME Firebase project.
 4. Guess round events → `new_game_turn` + `guess_result` copy check
    (drawer 🏆 / guesser ⚡ / all-gave-up ✏️).
 
-### 6.2 Widget
+### 7.2 Widget
 1. Add the widget → pick a circle in the app → confirm the latest doodle + sender
    name render on the home screen.
 2. Tap → feed deep link. iOS 17: tap the refresh button after a new drawing arrives.
 3. Kill the app, send a drawing from Android → widget updates within the push-reload/timeline window.
 
-### 6.3 Offline queue
+### 7.3 Offline queue
 1. Airplane mode → draw → Send → expect "Saved for later ✈️" + offline banner.
 2. Re-enable network → banner flips to "Sending…" → doodle appears in the feed exactly once.
 3. Repeat with app killed while queued, then relaunch.
 
-### 6.4 Mixed Android ↔ iOS matrix (16 scenarios)
+### 7.4 Mixed Android ↔ iOS matrix (16 scenarios)
 | # | Scenario | Expected |
 |---|---|---|
 | A | Android & iOS accounts share a circle | Both member lists agree |
@@ -107,19 +120,19 @@ Run on iPhone + the Android production build in the SAME Firebase project.
 | O | Premium cross-platform | Pro granted on Android reflects on iOS (server plan) and vice versa |
 | P | Offline/reconnect with both platforms drawing | Queues flush once, no dupes |
 
-### 6.5 Account lifecycle & privacy
+### 7.5 Account lifecycle & privacy
 Fresh install → signup (email/Google/Apple) → verification → profile setup →
 onboarding → create-circle; logout → login as second account: What's New dot,
 walkthrough, reveals, visit timestamps, notification prefs must be account-scoped;
 widget shows the placeholder until re-picked. Account deletion (two-step) removes
 the user's data per the documented scope.
 
-### 6.6 Accessibility / adaptivity sweep
+### 7.6 Accessibility / adaptivity sweep
 iPhone SE ↔ Pro Max, Dynamic Type default → XXL across: auth, canvas toolbar,
 letter bank, feed, notifications, What's New, profile, settings, onboarding,
 widget config. No clipping, no lost buttons, wrapped grids stay wrapped.
 
-## 7. Signing / CI notes
+## 8. Signing / CI notes
 - Set `DEVELOPMENT_TEAM` in `project.yml` (or xcconfig) for device builds; CI stays
   unsigned. Add an App Store distribution workflow when the icon/launch-screen
   blocker is cleared.

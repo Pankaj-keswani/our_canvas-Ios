@@ -193,7 +193,7 @@ final class AppRouter: ObservableObject {
         case .guessResult:
             let gameId = notification.targetId.isEmpty ? notification.drawingId : notification.targetId
             route = .guessGame(gameId: gameId)
-        case .newDrawing, .newReaction:
+        case .newDrawing, .newReaction, .memberJoined:
             if notification.drawingId.isEmpty {
                 route = .drawingFeed(groupId: notification.groupId,
                                      groupName: notification.groupName.isEmpty ? nil : notification.groupName)

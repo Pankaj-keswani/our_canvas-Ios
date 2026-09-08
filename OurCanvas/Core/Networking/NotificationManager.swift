@@ -100,7 +100,7 @@ class NotificationManager: NSObject, ObservableObject, UNUserNotificationCenterD
             }
 
             switch payload.type {
-            case .newDrawing, .newReaction, .newGameTurn, .guessResult:
+            case .newDrawing, .newReaction, .newGameTurn, .guessResult, .memberJoined:
                 self.reloadWidgets()
             }
         }

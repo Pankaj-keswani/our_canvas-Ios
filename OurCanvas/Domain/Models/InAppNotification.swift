@@ -8,6 +8,7 @@ struct InAppNotification: Equatable, Identifiable {
         case newDrawing = "NEW_DRAWING"
         case newReaction = "NEW_REACTION"
         case guessResult = "GUESS_RESULT"
+        case memberJoined = "MEMBER_JOINED"
 
         static func from(_ raw: String?) -> NotificationType? {
             guard let raw else { return nil }
@@ -19,6 +20,7 @@ struct InAppNotification: Equatable, Identifiable {
             case .newDrawing: return "🎨"
             case .newReaction: return "❤️"
             case .guessResult: return "🎮"
+            case .memberJoined: return "👋"
             }
         }
     }
@@ -87,6 +89,8 @@ struct InAppNotification: Equatable, Identifiable {
             return "reaction:\(drawingId):\(senderId)"
         case .guessResult:
             return "guess:\(gameId.isEmpty ? targetIdFallback : gameId)"
+        case .memberJoined:
+            return "member_joined:\(senderId.isEmpty ? targetIdFallback : senderId)"
         }
     }
 
@@ -102,6 +106,7 @@ struct PushPayload: Equatable {
         case newReaction = "new_reaction"
         case newGameTurn = "new_game_turn"
         case guessResult = "guess_result"
+        case memberJoined = "member_joined"
     }
 
     enum GuessPerspective: String {
@@ -121,6 +126,8 @@ struct PushPayload: Equatable {
     var word: String = ""
     var winnerName: String = ""
     var perspective: String = ""
+    // member_joined extras
+    var eventId: String = ""
 
     /// Android `parseAndValidatePayload` parity: type whitelist + friendly defaults.
     /// Returns nil for payloads without a known type.
@@ -145,6 +152,7 @@ struct PushPayload: Equatable {
         payload.word = string("word") ?? ""
         payload.winnerName = string("winnerName") ?? ""
         payload.perspective = string("perspective") ?? ""
+        payload.eventId = string("eventId") ?? string("joinedAt") ?? ""
         return payload
     }
 
@@ -191,6 +199,15 @@ struct PushPayload: Equatable {
             notification.notificationId = InAppNotification.makeId(type: .guessResult, gameId: targetIdForGame)
             notification.title = "🎮 Guess My Doodle"
             notification.body = guessResultBody
+        case .memberJoined:
+            notification.type = .memberJoined
+            // Stable per-event id from the backend (falls back to sender) so
+            // re-delivery dedupes while leave+rejoin stays distinct.
+            notification.notificationId = eventId.isEmpty
+                ? InAppNotification.makeId(type: .memberJoined, senderId: senderName)
+                : eventId
+            notification.title = "👋 \(senderName) joined \(groupName)"
+            notification.body = "\(senderName) has joined your circle \(groupName)"
         }
         return notification
     }
@@ -229,6 +246,10 @@ struct PushPayload: Equatable {
         components.scheme = "ourcanvas"
         var params: [String: String] = [:]
         switch type {
+        case .memberJoined:
+            params["route"] = "drawing_feed"
+            params["groupId"] = groupId
+            if !groupName.isEmpty && groupName != "your circle" { params["groupName"] = groupName }
         case .newGameTurn, .guessResult:
             if !targetIdForGame.isEmpty {
                 params["gameId"] = targetIdForGame
