@@ -80,7 +80,7 @@ final class NotificationPreferenceTests: XCTestCase {
 
     func testRoundTripThroughUserScopedStore() {
         let defaults = makeDefaults()
-        let store = UserScopedStore(uid: "u1", defaults: defaults)
+        var store = UserScopedStore(uid: "u1", defaults: defaults)
 
         var preferences = NotificationPreferences()
         preferences.gameEventsEnabled = false
