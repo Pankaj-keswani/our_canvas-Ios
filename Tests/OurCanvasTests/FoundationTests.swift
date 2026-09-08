@@ -257,7 +257,7 @@ final class AppRouterTests: XCTestCase {
 final class UserScopedStoreTests: XCTestCase {
     func testOnboardingVersionIsUserScoped() {
         let defaults = makeDefaults()
-        let storeA = UserScopedStore(uid: "userA", defaults: defaults)
+        var storeA = UserScopedStore(uid: "userA", defaults: defaults)
         let storeB = UserScopedStore(uid: "userB", defaults: defaults)
 
         storeA.onboardingVersion = 1
@@ -278,7 +278,7 @@ final class UserScopedStoreTests: XCTestCase {
 
     func testWhatsNewSeenVersionRoundTrip() {
         let defaults = makeDefaults()
-        let store = UserScopedStore(uid: "u1", defaults: defaults)
+        var store = UserScopedStore(uid: "u1", defaults: defaults)
         XCTAssertEqual(store.whatsNewSeenVersion, 0)
         store.whatsNewSeenVersion = 3
         XCTAssertEqual(store.whatsNewSeenVersion, 3)
@@ -286,7 +286,7 @@ final class UserScopedStoreTests: XCTestCase {
 
     func testNotificationPreferencesRoundTrip() {
         let defaults = makeDefaults()
-        let store = UserScopedStore(uid: "u1", defaults: defaults)
+        var store = UserScopedStore(uid: "u1", defaults: defaults)
 
         XCTAssertEqual(store.notificationPreferences, NotificationPreferences())
         var prefs = NotificationPreferences()

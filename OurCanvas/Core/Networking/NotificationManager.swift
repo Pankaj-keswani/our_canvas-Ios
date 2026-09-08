@@ -12,7 +12,7 @@ class NotificationManager: NSObject, ObservableObject, UNUserNotificationCenterD
 
     static let shared = NotificationManager()
 
-    private let deviceStore = DeviceLocalStore()
+    private var deviceStore = DeviceLocalStore()
 
     /// Sets delegates only. Called at app launch; safe before authentication.
     func configure() {

@@ -14,7 +14,7 @@ final class PushTokenStore {
     /// Production wiring (set at app launch) writes the token to Firestore. Injectable for tests.
     var persistHandler: ((_ token: String, _ uid: String) -> Void)?
 
-    private let deviceStore: DeviceLocalStore
+    private var deviceStore: DeviceLocalStore
     private var associatedUID: String?
 
     private(set) var cachedToken: String?
