@@ -19,7 +19,7 @@ final class CircleRenameTests: XCTestCase {
     func testBlankNamesRejected() {
         XCTAssertFalse(CircleRenameRules.isValidName(""))
         XCTAssertFalse(CircleRenameRules.isValidName("    "))
-        XCTAssertFalse(CircleRenameRules.isValidName("\\n\\t"))
+        XCTAssertFalse(CircleRenameRules.isValidName(" \t "))
     }
 
     func testValidNamesAccepted() {
