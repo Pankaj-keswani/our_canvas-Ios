@@ -37,8 +37,10 @@ final class WhatsNewTests: XCTestCase {
         let hypotheticalNextVersion = WhatsNewContent.CURRENT_VERSION + 1
         XCTAssertTrue(hypotheticalNextVersion > WhatsNewContent.CURRENT_VERSION)
         XCTAssertTrue(WhatsNewState.shouldShowDot(local: WhatsNewContent.CURRENT_VERSION - 1, remote: nil))
-        XCTAssertTrue(WhatsNewState.shouldShowDot(local: WhatsNewContent.CURRENT_VERSION,
-                                                  remote: WhatsNewContent.CURRENT_VERSION - 1))
+        // A lagging SERVER alone doesn't re-arm the dot for a user whose local mirror
+        // is current — the highest of the two wins, then markSeen back-fills the server.
+        XCTAssertFalse(WhatsNewState.shouldShowDot(local: WhatsNewContent.CURRENT_VERSION,
+                                                   remote: WhatsNewContent.CURRENT_VERSION - 1))
     }
 
     func testEffectiveSeenVersionMergesLocalAndRemote() {
