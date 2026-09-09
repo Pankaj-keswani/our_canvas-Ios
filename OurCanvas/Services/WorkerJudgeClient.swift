@@ -86,6 +86,20 @@ final class WorkerJudgeClient: GuessJudging {
 
     // MARK: - Transport
 
+    /// Non-2xx mapping, shared by checkGuess and giveUp.
+    /// 409 = the round is no longer in the guessing phase (someone won, everyone
+    /// revealed, or the round finished) — retrying cannot help, so the message must
+    /// not blame the connection. All other statuses (400 bad request, 403 not-a-member
+    /// / drawer-cant-guess, 404 missing game, 5xx) keep the generic connection error,
+    /// matching Android. Genuine members no longer receive 403 since the shared
+    /// worker's live-membership fallback (deployed 2026-09-09, version cf320597).
+    static func error(forStatusCode statusCode: Int) -> AppError {
+        if statusCode == 409 {
+            return AppError.underlying("This round already ended")
+        }
+        return .network
+    }
+
     func judge(action: String,
                gameId: String,
                userId: String,
@@ -110,7 +124,7 @@ final class WorkerJudgeClient: GuessJudging {
         let (data, response) = try await urlSession.data(for: request)
         guard let httpResponse = response as? HTTPURLResponse,
               (200..<300).contains(httpResponse.statusCode) else {
-            throw AppError.network
+            throw Self.error(forStatusCode: (response as? HTTPURLResponse)?.statusCode ?? -1)
         }
         guard let result = Self.parseResponse(data) else {
             throw AppError.decodingFailed

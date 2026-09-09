@@ -77,6 +77,9 @@ enum AppError: Error, Equatable {
     /// Maps arbitrary errors (network / firestore / unknown) to a friendly AppError.
     /// Firebase Auth errors are mapped in `AuthService.map(_:)` which can import FirebaseAuth.
     static func from(_ error: Error) -> AppError {
+        // Already-typed errors (services, worker client) must keep their message —
+        // bridging them through NSError would degrade to a generic bridging string.
+        if let typed = error as? AppError { return typed }
         let ns = error as NSError
         if ns.domain == NSURLErrorDomain {
             return .network

@@ -43,6 +43,32 @@ Fill these Info.plist build settings per environment (never commit values):
 Until both are set, Guess judging shows a friendly "not configured" error and the
 game stays in start/spectate states. The worker itself needs **no changes**.
 
+### Shared-worker note (do not regress)
+
+The push-relay worker is **shared backend** between iOS and Android, and its source
+lives only in the Android-side tooling — the iOS repo deliberately carries **no copy**
+of `push-relay/src/index.js`. Keep it that way: never deploy the worker from anything
+in this repo, or a stale copy could regress production fixes.
+
+Already live in production (deployed 2026-09-09, worker version `cf320597`):
+`handleJudge`'s membership check now falls back to the **live** `groups/{groupId}.memberIds`
+when the guesser is missing from the game document's creation-time `memberIds` snapshot.
+This fixes permanent 403 "not a member" dead-ends for members who joined a circle
+**mid-round**. The fix applies to iOS automatically — nothing to redeploy here.
+
+iOS-side verification for that fix (needs two+ real devices/accounts):
+1. Accounts A and B in a circle; A starts a Guess My Doodle round.
+2. Account C joins the circle **after** the round started.
+3. As C: open the Guess tab, replay the doodle, submit guesses — wrong → "Not quite —
+   try again!", correct → win flow. No "couldn't reach the judge" dead-end.
+4. C's Reveal Word / give-up path works; when everyone revealed, round ends GAVE_UP.
+5. Regression: A still judges normally; the drawer cannot guess their own doodle;
+   a genuine non-member is still rejected.
+
+iOS client behavior after this change: a worker `409` (round no longer in guessing
+phase) surfaces as "This round already ended" instead of a connection error; all other
+non-2xx responses keep the generic connection error (Android parity).
+
 ## 5. Cloud Functions — deploy the member-joined trigger (required for the new join notifications)
 
 `functions/index.js` now includes `onGroupMemberAdded` (groups doc updated → detects new

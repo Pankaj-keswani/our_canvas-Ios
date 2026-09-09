@@ -323,6 +323,34 @@ final class WorkerContractTests: XCTestCase {
         let config = WorkerConfig(baseURL: nil, apiKey: "")
         XCTAssertFalse(config.isConfigured)
     }
+
+    // MARK: Judge error mapping (shared worker, post cf320597)
+
+    func testConflictMapsToRoundEndedCopy() {
+        let error = WorkerJudgeClient.error(forStatusCode: 409)
+        XCTAssertEqual(error.message, "This round already ended")
+        XCTAssertNotEqual(error, AppError.network, "a wrong-phase 409 must not blame the connection")
+    }
+
+    func testOtherStatusesKeepGenericConnectionError() {
+        // Matches Android: genuine members no longer hit 403 after the worker's
+        // live-membership fallback, so remaining failures stay generic.
+        for status in [400, 403, 404, 500, -1] {
+            XCTAssertEqual(WorkerJudgeClient.error(forStatusCode: status), AppError.network,
+                           "status \(status) should keep the generic connection error")
+        }
+    }
+
+    func testJudgeErrorCopySurvivesViewModelRewrap() {
+        // GuessGameViewModel surfaces errors via AppError.from(error).message —
+        // typed AppErrors thrown by the judge client must survive that rewrap.
+        let conflict = AppError.from(WorkerJudgeClient.error(forStatusCode: 409))
+        XCTAssertEqual(conflict.message, "This round already ended")
+
+        XCTAssertEqual(AppError.from(AppError.network), AppError.network)
+        XCTAssertEqual(AppError.from(AppError.underlying("Guess judging isn't configured for this build yet. Coming soon!")).message,
+                       "Guess judging isn't configured for this build yet. Coming soon!")
+    }
 }
 
 // MARK: - 12/13/14. Judge outcome mapping
