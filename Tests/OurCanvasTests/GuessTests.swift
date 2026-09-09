@@ -353,6 +353,63 @@ final class WorkerContractTests: XCTestCase {
     }
 }
 
+// MARK: - Idempotent judge replays (shared worker cf4717ce)
+
+/// On slow networks the judge can commit server-side while the HTTP response is
+/// lost; the worker now replays the recorded outcome with 200 instead of a 409
+/// error storm. These tests lock the client-side interpretation of each replay.
+final class JudgeReplayTests: XCTestCase {
+    private func parse(_ json: String) -> JudgeResult {
+        guard let result = WorkerJudgeClient.parseResponse(Data(json.utf8)) else {
+            XCTFail("replay fixture must parse")
+            return JudgeResult()
+        }
+        return result
+    }
+
+    func testWinnerRetryReplaysCorrectWithWord() {
+        let result = parse(#"{"correct":true,"word":"cat","roundOver":true}"#)
+        XCTAssertEqual(GuessOutcomeAction.action(for: result), .correct)
+        XCTAssertEqual(result.word, "cat")
+    }
+
+    func testLoserRetryReplaysLostRaceWithPublicWord() {
+        let result = parse(#"{"correct":false,"lostRace":true,"winnerName":"Ash","word":"cat","roundOver":true}"#)
+        XCTAssertEqual(GuessOutcomeAction.action(for: result), .lostRace(winnerName: "Ash"))
+        XCTAssertEqual(result.word, "cat", "the word is public once the round is finished")
+    }
+
+    func testGaveUpFinishReplayMapsToRevealed() {
+        let result = parse(#"{"correct":false,"gaveUp":true,"roundOver":true,"word":"cat"}"#)
+        XCTAssertEqual(GuessOutcomeAction.action(for: result), .revealed(word: "cat"))
+    }
+
+    func testRevealRetryWhileStillGuessingMapsToRevealed() {
+        let result = parse(#"{"correct":false,"gaveUp":true,"roundOver":false,"word":"cat"}"#)
+        XCTAssertEqual(GuessOutcomeAction.action(for: result), .revealed(word: "cat"))
+    }
+
+    func testEmptyReplayWordNeverCountsAsReveal() {
+        let result = parse(#"{"correct":false,"gaveUp":true,"roundOver":false,"word":""}"#)
+        XCTAssertEqual(GuessOutcomeAction.action(for: result), .none,
+                       "persisting an empty reveal would strand the user on a blank spectate card")
+    }
+
+    func testRevealCardWordComesFromLocalStoreNotGameDoc() {
+        var fixture = makeGameFixture(status: "GUESSING")
+        fixture["revealedWord"] = "cat" // doc field only becomes authoritative at FINISH
+        let game = GuessGame.from(documentID: "g", data: fixture)
+
+        // Local reveal store populated (worker response persisted) → word shows.
+        XCTAssertEqual(GuessCardState.derive(game: game, uid: "guesser-1", localRevealedWord: "cat"),
+                       .gaveUpSpectate(game: game, revealedWord: "cat"))
+
+        // No local reveal → guessing card, even if the doc field were set early.
+        XCTAssertEqual(GuessCardState.derive(game: game, uid: "guesser-1", localRevealedWord: nil),
+                       .guessing(game: game, revealedLocally: false))
+    }
+}
+
 // MARK: - 12/13/14. Judge outcome mapping
 
 final class GuessOutcomeTests: XCTestCase {

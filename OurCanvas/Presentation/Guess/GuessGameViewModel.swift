@@ -239,7 +239,10 @@ final class GuessGameViewModel: ObservableObject {
                 )
                 await MainActor.run {
                     isChecking = false
-                    if let word = result.word {
+                    // Worker replays {gaveUp:true, word} on retries after a lost
+                    // response — persisting it here is what keeps the reveal card
+                    // from ever showing a blank word.
+                    if let word = result.word, !word.isEmpty {
                         userScopedStore.setRevealedWord(word, gameId: game.id)
                     }
                     refreshCardState()

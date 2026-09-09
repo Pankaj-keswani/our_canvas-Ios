@@ -94,6 +94,7 @@
 | Judge client contract (`checkGuess`/`giveUp`, `X-Api-Key`, response fields) | 🧪 | Worker untouched, as required |
 | Shared worker live-membership fix (mid-round joiners) | ✅ live · 📱 | Worker `cf320597` (2026-09-09) authorizes against live `groups/{id}.memberIds` — applies to iOS automatically; iOS repo carries no worker copy and must never deploy one. Device-verify per `IOS_EXTERNAL_SETUP_AND_TESTING.md` §4 |
 | 409 wrong-phase error copy | 🧪 | Client maps worker 409 → "This round already ended" (other non-2xx stay generic, Android parity) |
+| Idempotent judge replays (lost HTTP responses) | ✅ live · 🧪 | Worker `cf4717ce` (2026-09-09) replays FINISHED / already-gave-up outcomes with 200 (no writes). iOS maps all four replay shapes and persists replayed reveal words to the local store; reveal card never reads `game.revealedWord` before FINISH (tested in `JudgeReplayTests`) |
 | Config values | 🔧 | Info.plist placeholders must be filled (same key Android uses) |
 
 ## L. Offline reliability

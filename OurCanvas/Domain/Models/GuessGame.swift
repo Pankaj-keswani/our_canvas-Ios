@@ -313,7 +313,11 @@ enum GuessNormalizer {
 }
 
 /// Maps a worker judge response to the UI action (pure, tested). The worker is
-/// authoritative — this only interprets its verdict.
+/// authoritative — this only interprets its verdict. Since worker cf4717ce the
+/// judge also REPLAYS recorded outcomes on retries after lost HTTP responses
+/// (FINISHED round or caller already in gaveUpUsers → 200 with the recorded
+/// result + revealed word, no writes) instead of erroring, so replays arrive
+/// through this same mapping as first-class outcomes.
 enum GuessOutcomeAction: Equatable {
     case correct
     case lostRace(winnerName: String)
@@ -324,7 +328,9 @@ enum GuessOutcomeAction: Equatable {
     static func action(for result: JudgeResult) -> GuessOutcomeAction {
         if result.correct { return .correct }
         if result.lostRace { return .lostRace(winnerName: result.winnerName ?? "someone") }
-        if result.gaveUp, let word = result.word { return .revealed(word: word) }
+        // Only a real word counts as a reveal — persisting "" would move the user
+        // to the spectate card with a blank word forever.
+        if result.gaveUp, let word = result.word, !word.isEmpty { return .revealed(word: word) }
         if result.gaveUp { return .none }
         return .wrong
     }

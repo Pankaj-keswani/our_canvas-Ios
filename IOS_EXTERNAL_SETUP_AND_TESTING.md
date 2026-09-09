@@ -69,6 +69,34 @@ iOS client behavior after this change: a worker `409` (round no longer in guessi
 phase) surfaces as "This round already ended" instead of a connection error; all other
 non-2xx responses keep the generic connection error (Android parity).
 
+### Idempotent judge replays (worker `cf4717ce`, 2026-09-09, already live)
+
+On very slow networks a judge request can commit server-side while the HTTP response
+carrying the outcome is lost. The worker now REPLAYS the recorded outcome with 200
+instead of erroring when the game is already FINISHED or the caller is already in
+`gaveUpUsers` (no writes on replay):
+
+| Replay case | Response |
+|---|---|
+| FINISHED + CORRECT, caller is winner | `{correct:true, word}` |
+| FINISHED + CORRECT, caller not winner | `{correct:false, lostRace:true, winnerName, word}` |
+| FINISHED + GAVE_UP | `{correct:false, gaveUp:true, roundOver:true, word}` |
+| Caller already in gaveUpUsers (round still GUESSING) | `{correct:false, gaveUp:true, roundOver:false, word}` |
+
+iOS handling (unit-tested in `JudgeReplayTests`): win replay → win confirmation;
+lostRace replay → "So close — <winnerName> got it first!"; gaveUp replays → the word
+is persisted to the local reveal store (Android `guess_reveals` pattern), and the
+reveal card reads ONLY that local store while the round is live — never
+`game.revealedWord` before FINISH — so a retried reveal can never show a blank word.
+
+Device verification (slow-network simulation, e.g. Network Link Conditioner):
+1. As a guesser, trigger giveUp twice (retry after a lost response) — second call
+   returns `{gaveUp:true, word}` and the reveal card shows the word.
+2. After someone wins: retry checkGuess as the winner (`correct:true` + word) and as
+   another member (`lostRace:true` + winnerName + word). No 409s.
+3. Regression: drawer guessing own live round → 403; non-member → 403; mid-round
+   joiner can guess and reveal normally.
+
 ## 5. Cloud Functions — deploy the member-joined trigger (required for the new join notifications)
 
 `functions/index.js` now includes `onGroupMemberAdded` (groups doc updated → detects new
