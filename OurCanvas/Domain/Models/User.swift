@@ -36,6 +36,9 @@ struct User: Identifiable {
     var fcmToken: String? = nil
     var onboardingVersion: Int = 0
     var coins: Int = 3
+    var recoveredDates: [String] = []
+    var previousBrokenStreak: Int = 0
+    var streakBrokenDate: String = ""
 
     // Legacy iOS-only fields tolerated on read; not written anymore.
     var appStoreReceipt: String? = nil
@@ -78,6 +81,9 @@ extension User {
         user.fcmToken = FieldCast.string(data["fcmToken"])
         user.onboardingVersion = FieldCast.int(data["onboardingVersion"]) ?? 0
         user.coins = FieldCast.int(data["coins"]) ?? 3
+        user.recoveredDates = FieldCast.stringArray(data["recoveredDates"]) ?? []
+        user.previousBrokenStreak = FieldCast.int(data["previousBrokenStreak"]) ?? 0
+        user.streakBrokenDate = FieldCast.string(data["streakBrokenDate"]) ?? ""
         user.appStoreReceipt = FieldCast.string(data["appStoreReceipt"])
         user.lastRedeemedPromo = FieldCast.string(data["lastRedeemedPromo"])
         return user
@@ -107,6 +113,9 @@ extension User {
             "onboardingVersion": 0,
             "whatsNewSeenVersion": 0,
             "coins": 3,
+            "recoveredDates": [String](),
+            "previousBrokenStreak": 0,
+            "streakBrokenDate": "",
         ]
     }
 }
@@ -140,5 +149,17 @@ enum UserFieldUpdate {
 
     static func coins(_ value: Int) -> [String: Any] {
         ["coins": value]
+    }
+
+    static func recoveredDates(_ value: [String]) -> [String: Any] {
+        ["recoveredDates": value]
+    }
+
+    static func previousBrokenStreak(_ value: Int) -> [String: Any] {
+        ["previousBrokenStreak": value]
+    }
+
+    static func streakBrokenDate(_ value: String) -> [String: Any] {
+        ["streakBrokenDate": value]
     }
 }

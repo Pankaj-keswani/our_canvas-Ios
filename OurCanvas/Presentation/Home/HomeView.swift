@@ -16,8 +16,13 @@ struct HomeView: View {
             ).ignoresSafeArea()
 
             ScrollView {
-                VStack(spacing: 24) {
+                VStack(spacing: 20) {
                     header
+                    if let user = viewModel.currentUserProfile {
+                        StreakRecoveryBanner(user: user, onOpenWallet: {
+                            showingCoinWallet = true
+                        })
+                    }
                     streakCard
                     widgetTipCard
                     circlesSection

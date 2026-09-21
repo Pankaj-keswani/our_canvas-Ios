@@ -215,13 +215,8 @@ private struct TurnExpiredDrawerCard: View {
                 .font(.system(size: 40))
                 .foregroundColor(BrandColor.warning)
 
-            Text("Your 24h turn window expired ⏳")
+            Text("Your 24h turn window expired ⏳ Anyone can claim the pen & draw!")
                 .font(.headline)
-                .multilineTextAlignment(.center)
-
-            Text("Your turn to draw passed because 24 hours elapsed. Anyone in the circle can now claim the pen!")
-                .font(.subheadline)
-                .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)
         }
         .glassCard()
@@ -238,13 +233,8 @@ private struct TurnExpiredOthersCard: View {
                 .font(.system(size: 40))
                 .foregroundColor(BrandColor.warning)
 
-            Text("Turn passed ⏳")
+            Text("Turn passed ⏳ \(drawerName) didn't draw within 24 hours — anyone can claim the pen!")
                 .font(.headline)
-                .multilineTextAlignment(.center)
-
-            Text("\(drawerName) didn't draw within 24 hours.")
-                .font(.subheadline)
-                .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)
 
             PrimaryGradientButton(title: "Claim Pen & Draw 🎨", action: onClaim)

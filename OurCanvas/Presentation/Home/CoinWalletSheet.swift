@@ -93,7 +93,7 @@ struct CoinWalletSheet: View {
                             } label: {
                                 HStack(spacing: 8) {
                                     Image(systemName: "play.rectangle.fill")
-                                    Text("Watch Ad for +1 🪙")
+                                    Text("Watch Ad (+1 🪙) 🎬")
                                         .font(.headline)
                                 }
                                 .frame(maxWidth: .infinity)

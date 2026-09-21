@@ -202,11 +202,21 @@ class UserRepository: ObservableObject, UserProfileProviding {
         // Streak: consecutive active days; breaks after a missed day.
         if let profile {
             if profile.lastActiveDate != today {
-                let isYesterday = profile.lastActiveDate == Self.dayFormatter.string(from: Date().addingTimeInterval(-86400))
-                let newStreak = isYesterday ? profile.currentStreak + 1 : 1
-                fields["currentStreak"] = newStreak
-                fields["longestStreak"] = max(profile.longestStreak, newStreak)
-                fields["lastActiveDate"] = today
+                let yesterday = Self.dayFormatter.string(from: Date().addingTimeInterval(-86400))
+                let isYesterday = profile.lastActiveDate == yesterday
+                if isYesterday {
+                    let newStreak = profile.currentStreak + 1
+                    fields["currentStreak"] = newStreak
+                    fields["longestStreak"] = max(profile.longestStreak, newStreak)
+                    fields["lastActiveDate"] = today
+                } else {
+                    // Missed day: streak broken! Store metadata for recovery before resetting.
+                    fields["previousBrokenStreak"] = profile.currentStreak
+                    fields["streakBrokenDate"] = yesterday
+                    fields["currentStreak"] = 1
+                    fields["longestStreak"] = max(profile.longestStreak, 1)
+                    fields["lastActiveDate"] = today
+                }
             }
         } else {
             fields["currentStreak"] = 1

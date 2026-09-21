@@ -41,7 +41,7 @@ final class RewardedAdManager: ObservableObject {
     private func awardCoin(onReward: (() -> Void)?) async {
         guard let uid = Auth.auth().currentUser?.uid else { return }
         do {
-            try await UserRepository.shared.addCoins(uid: uid, amount: 1)
+            try await CoinManager.shared.earnCoins(uid: uid, amount: 1)
             rewardEarnedMessage = "+1 🪙 Added to your balance!"
             onReward?()
         } catch {

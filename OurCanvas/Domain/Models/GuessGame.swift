@@ -55,6 +55,7 @@ struct GuessGame: Equatable, Identifiable {
     let attempts: [Attempt]
     let result: RoundResult?
     let revealedWord: String?
+    let revealedSlots: [Int]
     /// Legacy 1v1 games carry a non-blank guesserId (mixed-version compatibility).
     let guesserId: String?
     let createdAt: Date?
@@ -100,6 +101,7 @@ struct GuessGame: Equatable, Identifiable {
             attempts: (data["attempts"] as? [[String: Any]] ?? []).map { Attempt.from(data: $0) },
             result: RoundResult.from(FieldCast.string(data["result"])),
             revealedWord: FieldCast.string(data["revealedWord"]),
+            revealedSlots: FieldCast.intArray(data["revealedSlots"]) ?? [],
             guesserId: FieldCast.string(data["guesserId"]),
             createdAt: TimestampCast.date(data["createdAt"]),
             updatedAt: TimestampCast.date(data["updatedAt"])

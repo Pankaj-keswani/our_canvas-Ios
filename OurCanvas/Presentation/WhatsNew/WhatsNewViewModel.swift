@@ -6,7 +6,7 @@ import FirebaseAuth
 /// CURRENT_VERSION bump re-arms the red dot per account across devices via the
 /// shared `users/{uid}.whatsNewSeenVersion` field.
 enum WhatsNewContent {
-    static let CURRENT_VERSION = 4
+    static let CURRENT_VERSION = 5
 
     enum Tag: String, CaseIterable {
         case play = "Play"
@@ -26,10 +26,11 @@ enum WhatsNewContent {
 
     /// Current content/order from the Android production spec (A6.1).
     static let cards: [Card] = [
-        Card(emoji: "❤️", title: "Avatar & Name Reactions", subtitle: "See who reacted to your doodle with circular avatars and short names.", tag: .together, isNew: true),
-        Card(emoji: "⚡", title: "Ultra-Fast Doodle Sync", subtitle: "Drawings downsampled cleanly for instant delivery and reliable widget refreshes.", tag: .create, isNew: true),
-        Card(emoji: "⏳", title: "24h Auto-Pass & Claim", subtitle: "If a drawer is inactive for 24h, anyone in the circle can claim the pen and draw!", tag: .play, isNew: true),
+        Card(emoji: "🔥", title: "Streak Recovery", subtitle: "Never lose your streak again — recover missed days within 48h using coins.", tag: .play, isNew: true),
         Card(emoji: "🪙", title: "Coins & Letter Hints", subtitle: "Earn coins with rewarded ads and reveal tricky letters slot by slot.", tag: .play, isNew: true),
+        Card(emoji: "❤️", title: "Avatar & Name Reactions", subtitle: "See who reacted to your doodle with circular avatars and short names.", tag: .together, isNew: false),
+        Card(emoji: "⚡", title: "Ultra-Fast Doodle Sync", subtitle: "Drawings downsampled cleanly for instant delivery and reliable widget refreshes.", tag: .create, isNew: false),
+        Card(emoji: "⏳", title: "24h Auto-Pass & Claim", subtitle: "If a drawer is inactive for 24h, anyone in the circle can claim the pen and draw!", tag: .play, isNew: false),
         Card(emoji: "🔄", title: "Widget refresh button", subtitle: "Refresh your home-screen doodle widget with one tap.", tag: .play, isNew: false),
         Card(emoji: "🔒", title: "Hide my Gmail", subtitle: "WhatsApp-style privacy: hide your email, and theirs hides from you.", tag: .together, isNew: false),
         Card(emoji: "🧹", title: "A tidier notification feed", subtitle: "Capped history, swipe-to-delete, mark-all-read and easy cleanup.", tag: .together, isNew: false),
