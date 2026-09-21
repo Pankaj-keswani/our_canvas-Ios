@@ -41,6 +41,14 @@ enum FieldCast {
         value as? [String]
     }
 
+    static func intArray(_ value: Any?) -> [Int]? {
+        if let list = value as? [Int] { return list }
+        if let list = value as? [Any] {
+            return list.compactMap { int($0) }
+        }
+        return nil
+    }
+
     static func intStringMap(_ value: Any?) -> [String: Int]? {
         guard let raw = value as? [String: Any] else { return nil }
         return raw.mapValues { int($0) ?? 0 }
