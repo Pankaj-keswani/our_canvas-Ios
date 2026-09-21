@@ -27,6 +27,22 @@ class UserRepository: ObservableObject, UserProfileProviding {
     static let profileCacheTTL: TimeInterval = 600
 
     private var memoryCache: [String: (user: User, fetchedAt: Date)] = [:]
+    private var userListener: ListenerRegistration?
+
+    func startListeningToUser(uid: String) {
+        userListener?.remove()
+        userListener = db.collection("users").document(uid).addSnapshotListener { [weak self] snapshot, error in
+            guard let self, let snapshot, snapshot.exists, let data = snapshot.data() else { return }
+            let user = self.mapTestUserPlan(User.from(documentID: snapshot.documentID, data: data))
+            self.cache(user, uid: uid)
+            self.publishIfCurrent(user, uid: uid)
+        }
+    }
+
+    func stopListeningToUser() {
+        userListener?.remove()
+        userListener = nil
+    }
 
     // MARK: - ProfileProviding
 
@@ -44,6 +60,7 @@ class UserRepository: ObservableObject, UserProfileProviding {
             let user = mapTestUserPlan(User.from(documentID: snapshot.documentID, data: data))
             cache(user, uid: uid)
             publishIfCurrent(user, uid: uid)
+            startListeningToUser(uid: uid)
             return user
         }
 
@@ -56,6 +73,7 @@ class UserRepository: ObservableObject, UserProfileProviding {
         let user = mapTestUserPlan(User.from(documentID: uid, data: fields))
         cache(user, uid: uid)
         publishIfCurrent(user, uid: uid)
+        startListeningToUser(uid: uid)
         return user
     }
 

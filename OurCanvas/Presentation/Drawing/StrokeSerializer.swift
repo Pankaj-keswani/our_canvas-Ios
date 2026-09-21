@@ -67,9 +67,13 @@ enum StrokeSerializer {
         parsed.canvasHeight = CGFloat(FieldCast.int(root["ch"]) ?? 1080)
 
         if let bg = root["bg"] as? [String: Any] {
-            let templateName = FieldCast.string(bg["t"]) ?? "plain"
+            let templateName = FieldCast.string(bg["t"])?.lowercased() ?? "plain"
+            let template = DrawingBackground.Template(rawValue: templateName)
+                ?? (templateName == "midnight_rose" || templateName == "midnightrose" ? .midnightRose : nil)
+                ?? (templateName == "aurora_borealis" || templateName == "auroraborealis" ? .auroraBorealis : nil)
+                ?? .plain
             parsed.background = DrawingBackground(
-                template: DrawingBackground.Template(rawValue: templateName) ?? .plain,
+                template: template,
                 colorHex: FieldCast.string(bg["c"]) ?? "#FFFFFF"
             )
         }

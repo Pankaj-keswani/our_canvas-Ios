@@ -4,8 +4,10 @@ import SwiftUI
 /// Stickers / Text / Settings), direct eraser toggle, size slider, color row.
 struct DrawingToolbar: View {
     @ObservedObject var engine: DrawingEngine
+    @ObservedObject private var userRepo: UserRepository = .shared
     let gate: PremiumGate
     var onUpgradeTapped: () -> Void
+    var onOpenCoinWallet: () -> Void = {}
     var onSaveToDevice: () -> Void
     var onShare: () -> Void
     /// When a live Co-Draw is active the composer routes undo/clear through these so
@@ -41,6 +43,12 @@ struct DrawingToolbar: View {
     @State private var selectedPanel: Panel = .brush
     @State private var newText = ""
     @State private var newTextFontSize: Double = 72
+
+    // MARK: Coin-unlock alert state
+    @State private var pendingCoinUnlockBrush: BrushType? = nil
+    @State private var pendingCoinUnlockBackground: DrawingBackground.Template? = nil
+    @State private var showInsufficientCoins = false
+    @State private var isUnlocking = false
 
     private let columns = [GridItem(.adaptive(minimum: 64), spacing: 8)]
 
@@ -85,6 +93,111 @@ struct DrawingToolbar: View {
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
         .background(Color(.systemBackground).opacity(0.95))
+        // MARK: Coin unlock confirmation alert — Brush
+        .alert(
+            pendingCoinUnlockBrush.map { "Unlock \($0.displayName)?" } ?? "Unlock Brush?",
+            isPresented: Binding(
+                get: { pendingCoinUnlockBrush != nil && !showInsufficientCoins },
+                set: { if !$0 { pendingCoinUnlockBrush = nil } }
+            )
+        ) {
+            let cost = pendingCoinUnlockBrush?.coinCost ?? 0
+            let balance = userRepo.currentUserProfile?.coins ?? 0
+            if balance >= cost {
+                Button("Unlock (\(cost) 🪙)") {
+                    if let brush = pendingCoinUnlockBrush,
+                       let uid = userRepo.currentUserProfile?.uid {
+                        isUnlocking = true
+                        Task {
+                            do {
+                                _ = try await CoinManager.shared.unlockBrush(
+                                    userId: uid,
+                                    brushName: brush.coinUnlockId,
+                                    cost: brush.coinCost
+                                )
+                                await MainActor.run {
+                                    engine.selectBrush(brush)
+                                    isUnlocking = false
+                                }
+                            } catch {
+                                await MainActor.run { isUnlocking = false }
+                            }
+                        }
+                    }
+                    pendingCoinUnlockBrush = nil
+                }
+            } else {
+                Button("Get Coins 🪙") {
+                    pendingCoinUnlockBrush = nil
+                    onOpenCoinWallet()
+                }
+            }
+            Button("Cancel", role: .cancel) {
+                pendingCoinUnlockBrush = nil
+            }
+        } message: {
+            let cost = pendingCoinUnlockBrush?.coinCost ?? 0
+            let balance = userRepo.currentUserProfile?.coins ?? 0
+            if balance >= cost {
+                Text("Spend \(cost) 🪙 to permanently unlock this brush. You have \(balance) coins.")
+            } else {
+                Text("You need \(cost) 🪙 but only have \(balance). Earn more coins!")
+            }
+        }
+        // MARK: Coin unlock confirmation alert — Background
+        .alert(
+            pendingCoinUnlockBackground.map { "Unlock \($0.displayName)?" } ?? "Unlock Background?",
+            isPresented: Binding(
+                get: { pendingCoinUnlockBackground != nil && !showInsufficientCoins },
+                set: { if !$0 { pendingCoinUnlockBackground = nil } }
+            )
+        ) {
+            let cost = pendingCoinUnlockBackground?.coinCost ?? 0
+            let balance = userRepo.currentUserProfile?.coins ?? 0
+            if balance >= cost {
+                Button("Unlock (\(cost) 🪙)") {
+                    if let template = pendingCoinUnlockBackground,
+                       let uid = userRepo.currentUserProfile?.uid {
+                        isUnlocking = true
+                        Task {
+                            do {
+                                _ = try await CoinManager.shared.unlockBackground(
+                                    userId: uid,
+                                    templateName: template.coinUnlockId,
+                                    cost: template.coinCost
+                                )
+                                await MainActor.run {
+                                    engine.updateBackground(DrawingBackground(
+                                        template: template,
+                                        colorHex: engine.background.colorHex
+                                    ))
+                                    isUnlocking = false
+                                }
+                            } catch {
+                                await MainActor.run { isUnlocking = false }
+                            }
+                        }
+                    }
+                    pendingCoinUnlockBackground = nil
+                }
+            } else {
+                Button("Get Coins 🪙") {
+                    pendingCoinUnlockBackground = nil
+                    onOpenCoinWallet()
+                }
+            }
+            Button("Cancel", role: .cancel) {
+                pendingCoinUnlockBackground = nil
+            }
+        } message: {
+            let cost = pendingCoinUnlockBackground?.coinCost ?? 0
+            let balance = userRepo.currentUserProfile?.coins ?? 0
+            if balance >= cost {
+                Text("Spend \(cost) 🪙 to permanently unlock this background. You have \(balance) coins.")
+            } else {
+                Text("You need \(cost) 🪙 but only have \(balance). Earn more coins!")
+            }
+        }
     }
 
     // MARK: - Panel button
@@ -121,7 +234,24 @@ struct DrawingToolbar: View {
     }
 
     private var brushPanel: some View {
-        VStack(spacing: 8) {
+        let coins = userRepo.currentUserProfile?.coins ?? 0
+        return VStack(spacing: 8) {
+            // Coin balance pill at top right
+            HStack {
+                Spacer()
+                Button {
+                    onOpenCoinWallet()
+                } label: {
+                    Label("\(coins) 🪙", systemImage: "")
+                        .font(.caption2.weight(.semibold))
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3)
+                        .background(Color.yellow.opacity(0.18))
+                        .foregroundColor(.orange)
+                        .cornerRadius(10)
+                }
+                .buttonStyle(.plain)
+            }
             ScrollView {
                 LazyVGrid(columns: columns, spacing: 8) {
                     ForEach(BrushType.allCases, id: \.self) { brush in
@@ -144,11 +274,14 @@ struct DrawingToolbar: View {
     }
 
     private func brushButton(_ brush: BrushType) -> some View {
-        let isLocked = !gate.canUseBrush(brush)
+        let isPremiumLocked = !gate.canUseBrush(brush)
+        let isCoinLocked = brush.isCoinUnlockable && !(userRepo.currentUserProfile?.isBrushUnlocked(brush) ?? false)
         let isSelected = engine.selectedBrush == brush
         return Button {
-            if isLocked {
+            if isPremiumLocked {
                 onUpgradeTapped()
+            } else if isCoinLocked {
+                pendingCoinUnlockBrush = brush
             } else {
                 engine.selectBrush(brush)
             }
@@ -158,10 +291,20 @@ struct DrawingToolbar: View {
                     Image(systemName: brush.systemImageName)
                         .font(.system(size: 18))
                         .foregroundStyle(isSelected ? BrandColor.primary : Color.primary)
-                    if isLocked {
+                    if isPremiumLocked {
                         Image(systemName: "lock.fill")
                             .font(.system(size: 8))
                             .foregroundStyle(BrandColor.warning)
+                    } else if isCoinLocked {
+                        // Golden coin-unlock badge
+                        Text("🪙 \(brush.coinCost)")
+                            .font(.system(size: 7, weight: .bold))
+                            .padding(.horizontal, 3)
+                            .padding(.vertical, 1)
+                            .background(Color.yellow.opacity(0.85))
+                            .foregroundColor(.black)
+                            .cornerRadius(4)
+                            .offset(x: 4, y: -4)
                     }
                 }
                 Text(brush.displayName)
@@ -174,7 +317,11 @@ struct DrawingToolbar: View {
             .cornerRadius(8)
             .overlay(
                 RoundedRectangle(cornerRadius: 8)
-                    .strokeBorder(isSelected ? BrandColor.primary : .clear, lineWidth: 1.5)
+                    .strokeBorder(
+                        isCoinLocked ? Color.yellow.opacity(0.6) :
+                        (isSelected ? BrandColor.primary : .clear),
+                        lineWidth: 1.5
+                    )
             )
         }
         .buttonStyle(.plain)
@@ -213,18 +360,7 @@ struct DrawingToolbar: View {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
                     ForEach(DrawingBackground.Template.allCases, id: \.self) { template in
-                        Button {
-                            engine.updateBackground(DrawingBackground(template: template,
-                                                                     colorHex: engine.background.colorHex))
-                        } label: {
-                            Text(template.displayName)
-                                .font(.caption)
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 6)
-                                .background(engine.background.template == template ? BrandColor.primary.opacity(0.2) : Color(.secondarySystemBackground).opacity(0.5))
-                                .foregroundStyle(engine.background.template == template ? BrandColor.primary : Color.primary)
-                                .cornerRadius(8)
-                        }
+                        backgroundTemplateButton(template)
                     }
                 }
             }
@@ -260,6 +396,39 @@ struct DrawingToolbar: View {
                 }
             }
         }
+    }
+
+    private func backgroundTemplateButton(_ template: DrawingBackground.Template) -> some View {
+        let isCoinLocked = template.isCoinUnlockable && !(userRepo.currentUserProfile?.isBackgroundUnlocked(template) ?? false)
+        let isSelected = engine.background.template == template
+        return Button {
+            if isCoinLocked {
+                pendingCoinUnlockBackground = template
+            } else {
+                engine.updateBackground(DrawingBackground(template: template,
+                                                          colorHex: engine.background.colorHex))
+            }
+        } label: {
+            HStack(spacing: 4) {
+                Text(template.displayName)
+                    .font(.caption)
+                if isCoinLocked {
+                    Text("🪙 \(template.coinCost)")
+                        .font(.system(size: 9, weight: .bold))
+                        .foregroundColor(.orange)
+                }
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+            .background(isSelected ? BrandColor.primary.opacity(0.2) : Color(.secondarySystemBackground).opacity(0.5))
+            .foregroundStyle(isSelected ? BrandColor.primary : Color.primary)
+            .cornerRadius(8)
+            .overlay(
+                RoundedRectangle(cornerRadius: 8)
+                    .strokeBorder(isCoinLocked ? Color.yellow.opacity(0.6) : .clear, lineWidth: 1.2)
+            )
+        }
+        .buttonStyle(.plain)
     }
 
     private var stickerPanel: some View {

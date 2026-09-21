@@ -199,6 +199,14 @@ enum StrokeRenderer {
             // Android: sketch texture. Approximation: several thin, slightly
             // offset passes (hand-drawn look).
             drawSketch(stroke, in: ctx, comps: comps)
+
+        case .fire:
+            // Tier 1 Coin brush: Multi-layer fiery flame stroke with golden core and glowing embers.
+            drawFire(stroke, in: ctx)
+
+        case .aurora:
+            // Tier 2 Coin brush: Chromatic dual-tone celestial ribbon (cyan to magenta) with stardust.
+            drawAurora(stroke, in: ctx)
         }
     }
 
@@ -435,6 +443,138 @@ enum StrokeRenderer {
         }
     }
 
+    private static func drawFire(_ stroke: Stroke, in ctx: CGContext) {
+        // Outer warm orange-red flame glow
+        ctx.saveGState()
+        setStroke((r: 1.0, g: 0.20, b: 0.0, a: 1.0), alpha: 0.32, ctx: ctx, cap: .round)
+        strokePath(stroke, in: ctx, widthFactor: 2.4)
+
+        // Central fiery flame layer
+        setStroke((r: 1.0, g: 0.42, b: 0.0, a: 1.0), alpha: 0.75, ctx: ctx, cap: .round)
+        strokePath(stroke, in: ctx, widthFactor: 1.25)
+
+        // Golden core highlight
+        setStroke((r: 1.0, g: 0.88, b: 0.22, a: 1.0), alpha: 0.95, ctx: ctx, cap: .round)
+        strokePath(stroke, in: ctx, widthFactor: 0.45)
+
+        // Hot center white/yellow highlight
+        setStroke((r: 1.0, g: 1.0, b: 0.90, a: 1.0), alpha: 0.90, ctx: ctx, cap: .round)
+        strokePath(stroke, in: ctx, widthFactor: 0.18)
+        ctx.restoreGState()
+
+        // Glowing ember particles along the stroke path
+        let (cumulative, total) = segmentLengths(stroke.points)
+        guard total > 0 else { return }
+        var random = SeededRandom(seed: UInt64(bitPattern: Int64(stroke.color &+ stroke.points.count &+ 777)))
+        let step = max(8, stroke.width * 0.85)
+        var target = step
+
+        for i in 1..<stroke.points.count {
+            while target <= cumulative[i] {
+                let segmentLength = cumulative[i] - cumulative[i - 1]
+                let t = segmentLength > 0 ? (target - cumulative[i - 1]) / segmentLength : 0
+                let clamped = min(max(t, 0), 1)
+                let px = stroke.points[i - 1].x + (stroke.points[i].x - stroke.points[i - 1].x) * clamped
+                let py = stroke.points[i - 1].y + (stroke.points[i].y - stroke.points[i - 1].y) * clamped
+
+                let jitterX = (random.next() - 0.5) * stroke.width * 1.2
+                let jitterY = (random.next() - 0.5) * stroke.width * 1.2
+                let center = CGPoint(x: px + jitterX, y: py + jitterY)
+                let emberRadius = max(1.0, stroke.width * (0.08 + 0.14 * random.next()))
+
+                // Glow ring
+                ctx.setFillColor(red: 1.0, green: 0.35, blue: 0.0, alpha: 0.4)
+                ctx.fillEllipse(in: CGRect(x: center.x - emberRadius * 1.8, y: center.y - emberRadius * 1.8,
+                                           width: emberRadius * 3.6, height: emberRadius * 3.6))
+
+                // Bright core
+                ctx.setFillColor(red: 1.0, green: 0.92, blue: 0.3, alpha: 0.95)
+                ctx.fillEllipse(in: CGRect(x: center.x - emberRadius, y: center.y - emberRadius,
+                                           width: emberRadius * 2, height: emberRadius * 2))
+
+                target += step
+            }
+        }
+    }
+
+    private static func drawAurora(_ stroke: Stroke, in ctx: CGContext) {
+        let (cumulative, total) = segmentLengths(stroke.points)
+        guard total > 0 else { return }
+
+        // Outer ethereal violet glow
+        ctx.saveGState()
+        ctx.setStrokeColor(red: 0.60, green: 0.10, blue: 0.95, alpha: 0.28)
+        ctx.setLineCap(.round)
+        ctx.setLineJoin(.round)
+        strokePath(stroke, in: ctx, widthFactor: 2.4)
+        ctx.restoreGState()
+
+        // Main chromatic ribbon: Cyan (#00FFA3) -> Magenta (#DC00FF)
+        ctx.setLineCap(.round)
+        ctx.setLineJoin(.round)
+        ctx.setLineWidth(max(0.5, stroke.width * 1.15))
+
+        for i in 1..<stroke.points.count {
+            let fraction = cumulative[i] / total
+            let r = (1.0 - fraction) * 0.0 + fraction * 0.86
+            let g = (1.0 - fraction) * 1.0 + fraction * 0.0
+            let b = (1.0 - fraction) * 0.64 + fraction * 1.0
+            let color = UIColor(red: r, green: g, blue: b, alpha: 0.85)
+
+            ctx.setStrokeColor(color.cgColor)
+            let path = CGMutablePath()
+            path.move(to: stroke.points[i - 1])
+            path.addLine(to: stroke.points[i])
+            ctx.addPath(path)
+            ctx.strokePath()
+        }
+
+        // Bright core highlight
+        ctx.saveGState()
+        setStroke((r: 0.8, green: 1.0, b: 1.0, a: 1.0), alpha: 0.75, ctx: ctx, cap: .round)
+        strokePath(stroke, in: ctx, widthFactor: 0.35)
+        ctx.restoreGState()
+
+        // Crystalline stardust sparkles
+        var random = SeededRandom(seed: UInt64(bitPattern: Int64(stroke.color &+ stroke.points.count &+ 999)))
+        let step = max(10, stroke.width * 1.1)
+        var target = step
+
+        for i in 1..<stroke.points.count {
+            while target <= cumulative[i] {
+                let segmentLength = cumulative[i] - cumulative[i - 1]
+                let t = segmentLength > 0 ? (target - cumulative[i - 1]) / segmentLength : 0
+                let clamped = min(max(t, 0), 1)
+                let px = stroke.points[i - 1].x + (stroke.points[i].x - stroke.points[i - 1].x) * clamped
+                let py = stroke.points[i - 1].y + (stroke.points[i].y - stroke.points[i - 1].y) * clamped
+
+                let jitterX = (random.next() - 0.5) * stroke.width * 0.8
+                let jitterY = (random.next() - 0.5) * stroke.width * 0.8
+                let center = CGPoint(x: px + jitterX, y: py + jitterY)
+                let size = stroke.width * (0.30 + 0.40 * random.next())
+
+                // 4-point cross stardust
+                ctx.setStrokeColor(red: 1.0, green: 1.0, blue: 1.0, alpha: 0.9)
+                ctx.setLineWidth(max(0.5, stroke.width * 0.08))
+                let path = CGMutablePath()
+                path.move(to: CGPoint(x: center.x - size, y: center.y))
+                path.addLine(to: CGPoint(x: center.x + size, y: center.y))
+                path.move(to: CGPoint(x: center.x, y: center.y - size))
+                path.addLine(to: CGPoint(x: center.x, y: center.y + size))
+                ctx.addPath(path)
+                ctx.strokePath()
+
+                // Center diamond/dot
+                ctx.setFillColor(red: 0.4, green: 1.0, blue: 0.9, alpha: 0.95)
+                let dotRadius = max(0.5, stroke.width * 0.10)
+                ctx.fillEllipse(in: CGRect(x: center.x - dotRadius, y: center.y - dotRadius,
+                                           width: dotRadius * 2, height: dotRadius * 2))
+
+                target += step
+            }
+        }
+    }
+
     // MARK: - Background
 
     static func drawBackground(_ background: DrawingBackground, in ctx: CGContext, canvasRect: CGRect) {
@@ -489,6 +629,76 @@ enum StrokeRenderer {
                                        end: CGPoint(x: 0, y: canvasRect.height),
                                        options: [])
             }
+        case .midnightRose:
+            // Velvety midnight plum/black gradient: #140810 to #2A0818 to #0D0308
+            let topColor = UIColor(red: 0x14 / 255.0, green: 0x08 / 255.0, blue: 0x10 / 255.0, alpha: 1.0).cgColor
+            let midColor = UIColor(red: 0x2A / 255.0, green: 0x08 / 255.0, blue: 0x18 / 255.0, alpha: 1.0).cgColor
+            let bottomColor = UIColor(red: 0x0D / 255.0, green: 0x03 / 255.0, blue: 0x08 / 255.0, alpha: 1.0).cgColor
+            if let gradient = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(),
+                                         colors: [topColor, midColor, bottomColor] as CFArray,
+                                         locations: [0.0, 0.5, 1.0]) {
+                ctx.drawLinearGradient(gradient, start: .zero, end: CGPoint(x: 0, y: canvasRect.height), options: [])
+            }
+
+            // Floating rose petal accents (subtle soft crimson petals)
+            var petalRandom = SeededRandom(seed: 12345678)
+            let petalCount = 14
+            for _ in 0..<petalCount {
+                let px = canvasRect.width * petalRandom.next()
+                let py = canvasRect.height * petalRandom.next()
+                let petalWidth = canvasRect.width * (0.025 + 0.035 * petalRandom.next())
+                let petalHeight = petalWidth * (1.6 + 0.5 * petalRandom.next())
+                let angle = petalRandom.next() * .pi * 2
+
+                ctx.saveGState()
+                ctx.translateBy(x: px, y: py)
+                ctx.rotate(by: angle)
+                ctx.setFillColor(red: 0.90, green: 0.15, blue: 0.35, alpha: 0.18)
+                ctx.fillEllipse(in: CGRect(x: -petalWidth / 2, y: -petalHeight / 2, width: petalWidth, height: petalHeight))
+                ctx.restoreGState()
+            }
+
+        case .auroraBorealis:
+            // Deep polar midnight sky: #030B1E to #07203A to #020914
+            let topSky = UIColor(red: 0x03 / 255.0, green: 0x0B / 255.0, blue: 0x1E / 255.0, alpha: 1.0).cgColor
+            let midSky = UIColor(red: 0x07 / 255.0, green: 0x20 / 255.0, blue: 0x3A / 255.0, alpha: 1.0).cgColor
+            let bottomSky = UIColor(red: 0x02 / 255.0, green: 0x09 / 255.0, blue: 0x14 / 255.0, alpha: 1.0).cgColor
+            if let gradient = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(),
+                                         colors: [topSky, midSky, bottomSky] as CFArray,
+                                         locations: [0.0, 0.55, 1.0]) {
+                ctx.drawLinearGradient(gradient, start: .zero, end: CGPoint(x: 0, y: canvasRect.height), options: [])
+            }
+
+            // Starfield
+            var starRandom = SeededRandom(seed: 87654321)
+            let starCount = 35
+            for _ in 0..<starCount {
+                let sx = canvasRect.width * starRandom.next()
+                let sy = canvasRect.height * starRandom.next()
+                let starRadius = 0.8 + 1.2 * starRandom.next()
+                let alpha = 0.3 + 0.6 * starRandom.next()
+                ctx.setFillColor(red: 0.9, green: 0.95, blue: 1.0, alpha: alpha)
+                ctx.fillEllipse(in: CGRect(x: sx - starRadius, y: sy - starRadius, width: starRadius * 2, height: starRadius * 2))
+            }
+
+            // Emerald-teal Northern Lights wave
+            ctx.saveGState()
+            let wavePath = CGMutablePath()
+            let waveY = canvasRect.height * 0.35
+            wavePath.move(to: CGPoint(x: 0, y: waveY))
+            var x: CGFloat = 0
+            while x <= canvasRect.width {
+                let y = waveY + sin(x / canvasRect.width * .pi * 3) * (canvasRect.height * 0.08)
+                wavePath.addLine(to: CGPoint(x: x, y: y))
+                x += 10
+            }
+            ctx.addPath(wavePath)
+            ctx.setStrokeColor(red: 0.0, green: 1.0, blue: 0.64, alpha: 0.25)
+            ctx.setLineWidth(canvasRect.height * 0.16)
+            ctx.setLineCap(.round)
+            ctx.setLineJoin(.round)
+            ctx.strokePath()
+            ctx.restoreGState()
         }
     }
 

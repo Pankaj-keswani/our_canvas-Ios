@@ -39,12 +39,30 @@ struct User: Identifiable {
     var recoveredDates: [String] = []
     var previousBrokenStreak: Int = 0
     var streakBrokenDate: String = ""
+    var unlockedBrushes: [String] = []
+    var unlockedBackgrounds: [String] = []
 
     // Legacy iOS-only fields tolerated on read; not written anymore.
     var appStoreReceipt: String? = nil
     var lastRedeemedPromo: String? = nil
 
     var isPro: Bool { plan == "pro" }
+
+    func isBrushUnlocked(_ brush: BrushType) -> Bool {
+        guard brush.isCoinUnlockable else { return true }
+        return unlockedBrushes.contains { item in
+            item.caseInsensitiveCompare(brush.coinUnlockId) == .orderedSame ||
+            item.caseInsensitiveCompare(brush.rawValue) == .orderedSame
+        }
+    }
+
+    func isBackgroundUnlocked(_ template: DrawingBackground.Template) -> Bool {
+        guard template.isCoinUnlockable else { return true }
+        return unlockedBackgrounds.contains { item in
+            item.caseInsensitiveCompare(template.coinUnlockId) == .orderedSame ||
+            item.caseInsensitiveCompare(template.rawValue) == .orderedSame
+        }
+    }
 }
 
 extension User {
@@ -84,6 +102,8 @@ extension User {
         user.recoveredDates = FieldCast.stringArray(data["recoveredDates"]) ?? []
         user.previousBrokenStreak = FieldCast.int(data["previousBrokenStreak"]) ?? 0
         user.streakBrokenDate = FieldCast.string(data["streakBrokenDate"]) ?? ""
+        user.unlockedBrushes = FieldCast.stringArray(data["unlockedBrushes"]) ?? []
+        user.unlockedBackgrounds = FieldCast.stringArray(data["unlockedBackgrounds"]) ?? []
         user.appStoreReceipt = FieldCast.string(data["appStoreReceipt"])
         user.lastRedeemedPromo = FieldCast.string(data["lastRedeemedPromo"])
         return user
@@ -116,6 +136,8 @@ extension User {
             "recoveredDates": [String](),
             "previousBrokenStreak": 0,
             "streakBrokenDate": "",
+            "unlockedBrushes": [String](),
+            "unlockedBackgrounds": [String](),
         ]
     }
 }
@@ -161,5 +183,13 @@ enum UserFieldUpdate {
 
     static func streakBrokenDate(_ value: String) -> [String: Any] {
         ["streakBrokenDate": value]
+    }
+
+    static func unlockedBrushes(_ value: [String]) -> [String: Any] {
+        ["unlockedBrushes": value]
+    }
+
+    static func unlockedBackgrounds(_ value: [String]) -> [String: Any] {
+        ["unlockedBackgrounds": value]
     }
 }

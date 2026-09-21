@@ -22,6 +22,8 @@ enum BrushType: String, CaseIterable, Hashable {
     case glitter
     case sketch
     case eraser
+    case fire
+    case aurora
 
     var androidID: Int {
         switch self {
@@ -39,6 +41,8 @@ enum BrushType: String, CaseIterable, Hashable {
         case .glitter: return 11
         case .sketch: return 12
         case .eraser: return 13
+        case .fire: return 14
+        case .aurora: return 15
         }
     }
 
@@ -58,6 +62,8 @@ enum BrushType: String, CaseIterable, Hashable {
         case 11: return .glitter
         case 12: return .sketch
         case 13: return .eraser
+        case 14: return .fire
+        case 15: return .aurora
         default: return .basic
         }
     }
@@ -78,6 +84,8 @@ enum BrushType: String, CaseIterable, Hashable {
         case .glitter: return "Glitter"
         case .sketch: return "Sketch"
         case .eraser: return "Eraser"
+        case .fire: return "Fire 🔥"
+        case .aurora: return "Aurora 🌌"
         }
     }
 
@@ -97,6 +105,28 @@ enum BrushType: String, CaseIterable, Hashable {
         case .glitter: return "star.bubble.fill"
         case .sketch: return "pencil.and.outline"
         case .eraser: return "eraser"
+        case .fire: return "flame.fill"
+        case .aurora: return "sparkles"
+        }
+    }
+
+    var coinCost: Int {
+        switch self {
+        case .fire: return 10
+        case .aurora: return 20
+        default: return 0
+        }
+    }
+
+    var isCoinUnlockable: Bool {
+        coinCost > 0
+    }
+
+    var coinUnlockId: String {
+        switch self {
+        case .fire: return "FIRE"
+        case .aurora: return "AURORA"
+        default: return ""
         }
     }
 }
@@ -200,6 +230,8 @@ struct DrawingBackground: Equatable {
         case dots
         case grid
         case gradient
+        case midnightRose = "midnight_rose"
+        case auroraBorealis = "aurora_borealis"
 
         var displayName: String {
             switch self {
@@ -207,6 +239,28 @@ struct DrawingBackground: Equatable {
             case .dots: return "Dots"
             case .grid: return "Grid"
             case .gradient: return "Gradient"
+            case .midnightRose: return "Midnight Rose 🌹"
+            case .auroraBorealis: return "Aurora 🌌"
+            }
+        }
+
+        var coinCost: Int {
+            switch self {
+            case .midnightRose: return 10
+            case .auroraBorealis: return 20
+            default: return 0
+            }
+        }
+
+        var isCoinUnlockable: Bool {
+            coinCost > 0
+        }
+
+        var coinUnlockId: String {
+            switch self {
+            case .midnightRose: return "MIDNIGHT_ROSE"
+            case .auroraBorealis: return "AURORA_BOREALIS"
+            default: return ""
             }
         }
     }

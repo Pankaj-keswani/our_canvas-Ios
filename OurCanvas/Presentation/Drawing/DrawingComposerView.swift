@@ -14,6 +14,7 @@ struct DrawingComposerView: View {
     @State private var editingText: TextElement?
     @State private var queuedOffline = false
     @State private var saveMessage: String?
+    @State private var showingCoinWallet = false
 
     private let drawingRepo = DrawingRepository()
 
@@ -74,6 +75,7 @@ struct DrawingComposerView: View {
             DrawingToolbar(engine: engine,
                            gate: gate,
                            onUpgradeTapped: { activeAlert = .upgradeStub },
+                           onOpenCoinWallet: { showingCoinWallet = true },
                            onSaveToDevice: { saveToDevice() },
                            onShare: { share() },
                            onUndo: { coDraw.localUndo() },
@@ -137,6 +139,9 @@ struct DrawingComposerView: View {
             TextEditSheet(element: element) { updated in
                 engine.updateElement(.text(updated))
             }
+        }
+        .sheet(isPresented: $showingCoinWallet) {
+            CoinWalletSheet()
         }
     }
 
