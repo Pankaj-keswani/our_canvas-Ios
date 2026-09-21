@@ -132,6 +132,7 @@ struct FeedView: View {
                     DrawingCard(
                         drawing: drawing,
                         senderName: viewModel.senderProfile(for: drawing)?.displayName,
+                        userProfiles: viewModel.senderProfiles,
                         onFavorite: { viewModel.toggleFavorite(drawing: drawing) },
                         onReact: { emoji, name in viewModel.addReaction(drawing: drawing, emoji: emoji, emojiName: name) },
                         onReplay: { replayDrawing = drawing }
@@ -152,6 +153,7 @@ struct FeedView: View {
                     DrawingCard(
                         drawing: drawing,
                         senderName: viewModel.senderProfile(for: drawing)?.displayName,
+                        userProfiles: viewModel.senderProfiles,
                         onFavorite: { viewModel.toggleFavorite(drawing: drawing) },
                         onReact: { emoji, name in viewModel.addReaction(drawing: drawing, emoji: emoji, emojiName: name) },
                         onReplay: { replayDrawing = drawing }

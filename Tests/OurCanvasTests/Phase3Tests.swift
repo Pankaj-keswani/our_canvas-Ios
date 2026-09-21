@@ -6,13 +6,13 @@ import Foundation
 
 final class WhatsNewTests: XCTestCase {
     func testCurrentVersionMatchesAndroid() {
-        XCTAssertEqual(WhatsNewContent.CURRENT_VERSION, 3)
+        XCTAssertEqual(WhatsNewContent.CURRENT_VERSION, 4)
     }
 
     func testCardListMatchesAndroidOrder() {
         let titles = WhatsNewContent.cards.map { $0.title }
-        XCTAssertEqual(titles.prefix(6), ["Widget refresh button", "Hide my Gmail", "A tidier notification feed",
-                                          "Guess My Doodle", "Instant guess alerts", "Co-Draw together (Beta)"])
+        XCTAssertEqual(titles.prefix(4), ["Avatar & Name Reactions", "Ultra-Fast Doodle Sync",
+                                          "24h Auto-Pass & Claim", "Coins & Letter Hints"])
         XCTAssertEqual(titles.suffix(2), ["Offline sends", "Lifetime Pro"])
         // Tag chips limited to the Android vocabulary.
         XCTAssertTrue(WhatsNewContent.cards.allSatisfy { WhatsNewContent.Tag(rawValue: $0.tag.rawValue) != nil })
@@ -20,13 +20,13 @@ final class WhatsNewTests: XCTestCase {
 
     func testDotVisibleWhenSeenVersionBelowCurrent() {
         XCTAssertTrue(WhatsNewState.shouldShowDot(local: 0, remote: nil))
-        XCTAssertTrue(WhatsNewState.shouldShowDot(local: 2, remote: 2))
+        XCTAssertTrue(WhatsNewState.shouldShowDot(local: 3, remote: 3))
     }
 
     func testDotHiddenAtCurrentVersion() {
-        XCTAssertFalse(WhatsNewState.shouldShowDot(local: 3, remote: nil))
-        XCTAssertFalse(WhatsNewState.shouldShowDot(local: 3, remote: 2))
-        XCTAssertFalse(WhatsNewState.shouldShowDot(local: 2, remote: 3))
+        XCTAssertFalse(WhatsNewState.shouldShowDot(local: 4, remote: nil))
+        XCTAssertFalse(WhatsNewState.shouldShowDot(local: 4, remote: 3))
+        XCTAssertFalse(WhatsNewState.shouldShowDot(local: 3, remote: 4))
     }
 
     func testVersionBumpReArmsDot() {

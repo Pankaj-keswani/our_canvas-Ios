@@ -6,7 +6,7 @@ import FirebaseAuth
 /// CURRENT_VERSION bump re-arms the red dot per account across devices via the
 /// shared `users/{uid}.whatsNewSeenVersion` field.
 enum WhatsNewContent {
-    static let CURRENT_VERSION = 3
+    static let CURRENT_VERSION = 4
 
     enum Tag: String, CaseIterable {
         case play = "Play"
@@ -24,19 +24,20 @@ enum WhatsNewContent {
         var id: String { title }
     }
 
-    /// Current content/order from the Android production spec (A6.1). The spec's
-    /// list enumerates twelve features under its "current 11-card list" heading —
-    /// the enumerated list is authoritative, so all listed entries ship.
+    /// Current content/order from the Android production spec (A6.1).
     static let cards: [Card] = [
-        Card(emoji: "🔄", title: "Widget refresh button", subtitle: "Refresh your home-screen doodle widget with one tap.", tag: .play, isNew: true),
-        Card(emoji: "🔒", title: "Hide my Gmail", subtitle: "WhatsApp-style privacy: hide your email, and theirs hides from you.", tag: .together, isNew: true),
-        Card(emoji: "🧹", title: "A tidier notification feed", subtitle: "Capped history, swipe-to-delete, mark-all-read and easy cleanup.", tag: .together, isNew: true),
-        Card(emoji: "🎮", title: "Guess My Doodle", subtitle: "Now multiplayer — the whole circle races to guess at once. First correct answer wins!", tag: .play, isNew: true),
-        Card(emoji: "🔔", title: "Instant guess alerts", subtitle: "Know the moment someone cracks your doodle — or beats you to it.", tag: .play, isNew: true),
-        Card(emoji: "🤝", title: "Co-Draw together (Beta)", subtitle: "Draw on one live canvas with your circle, stroke by stroke.", tag: .together, isNew: true),
+        Card(emoji: "❤️", title: "Avatar & Name Reactions", subtitle: "See who reacted to your doodle with circular avatars and short names.", tag: .together, isNew: true),
+        Card(emoji: "⚡", title: "Ultra-Fast Doodle Sync", subtitle: "Drawings downsampled cleanly for instant delivery and reliable widget refreshes.", tag: .create, isNew: true),
+        Card(emoji: "⏳", title: "24h Auto-Pass & Claim", subtitle: "If a drawer is inactive for 24h, anyone in the circle can claim the pen and draw!", tag: .play, isNew: true),
+        Card(emoji: "🪙", title: "Coins & Letter Hints", subtitle: "Earn coins with rewarded ads and reveal tricky letters slot by slot.", tag: .play, isNew: true),
+        Card(emoji: "🔄", title: "Widget refresh button", subtitle: "Refresh your home-screen doodle widget with one tap.", tag: .play, isNew: false),
+        Card(emoji: "🔒", title: "Hide my Gmail", subtitle: "WhatsApp-style privacy: hide your email, and theirs hides from you.", tag: .together, isNew: false),
+        Card(emoji: "🧹", title: "A tidier notification feed", subtitle: "Capped history, swipe-to-delete, mark-all-read and easy cleanup.", tag: .together, isNew: false),
+        Card(emoji: "🎮", title: "Guess My Doodle", subtitle: "Now multiplayer — the whole circle races to guess at once. First correct answer wins!", tag: .play, isNew: false),
+        Card(emoji: "🔔", title: "Instant guess alerts", subtitle: "Know the moment someone cracks your doodle — or beats you to it.", tag: .play, isNew: false),
+        Card(emoji: "🤝", title: "Co-Draw together (Beta)", subtitle: "Draw on one live canvas with your circle, stroke by stroke.", tag: .together, isNew: false),
         Card(emoji: "📱", title: "Home screen widget", subtitle: "Your circle's latest doodle, right on your home screen.", tag: .create, isNew: false),
         Card(emoji: "▶️", title: "Doodle replay", subtitle: "Watch every doodle redraw itself, stroke by stroke.", tag: .create, isNew: false),
-        Card(emoji: "❤️", title: "Quick reactions", subtitle: "Long-press any doodle to react — custom reactions included.", tag: .together, isNew: false),
         Card(emoji: "🎨", title: "One-tap circle invites", subtitle: "Share an invite link and doodle together in seconds.", tag: .together, isNew: false),
         Card(emoji: "✈️", title: "Offline sends", subtitle: "Queue doodles while offline; they send the moment you're back.", tag: .create, isNew: false),
         Card(emoji: "💎", title: "Lifetime Pro", subtitle: "One payment, Pro forever. Special brushes, colors and more.", tag: .pro, isNew: false),

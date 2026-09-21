@@ -110,6 +110,59 @@ class UserRepository: ObservableObject, UserProfileProviding {
         try await updateFields(uid: uid, UserFieldUpdate.fcmToken(token))
     }
 
+    // MARK: - Coins Economy (atomic transactions)
+
+    func addCoins(uid: String, amount: Int) async throws {
+        guard amount > 0 else { return }
+        let userRef = db.collection("users").document(uid)
+        _ = try await db.runTransaction { (transaction, errorPointer) -> Any? in
+            let snapshot: DocumentSnapshot
+            do {
+                snapshot = try transaction.getDocument(userRef)
+            } catch let fetchError as NSError {
+                errorPointer?.pointee = fetchError
+                return nil
+            }
+            let currentCoins = FieldCast.int(snapshot.data()?["coins"]) ?? 3
+            let newCoins = currentCoins + amount
+            transaction.updateData(["coins": newCoins], forDocument: userRef)
+            return newCoins
+        }
+        memoryCache[uid] = nil
+        if uid == Auth.auth().currentUser?.uid {
+            _ = try? await getUser(uid: uid, ignoreCache: true)
+        }
+    }
+
+    func deductCoins(uid: String, amount: Int) async throws -> Bool {
+        guard amount > 0 else { return true }
+        let userRef = db.collection("users").document(uid)
+        let success = try await db.runTransaction { (transaction, errorPointer) -> Any? in
+            let snapshot: DocumentSnapshot
+            do {
+                snapshot = try transaction.getDocument(userRef)
+            } catch let fetchError as NSError {
+                errorPointer?.pointee = fetchError
+                return nil
+            }
+            let currentCoins = FieldCast.int(snapshot.data()?["coins"]) ?? 3
+            if currentCoins < amount {
+                return false
+            }
+            let newCoins = currentCoins - amount
+            transaction.updateData(["coins": newCoins], forDocument: userRef)
+            return true
+        } as? Bool ?? false
+
+        if success {
+            memoryCache[uid] = nil
+            if uid == Auth.auth().currentUser?.uid {
+                _ = try? await getUser(uid: uid, ignoreCache: true)
+            }
+        }
+        return success
+    }
+
     // MARK: - Drawing-send analytics (Android A8.2 parity, field-level only)
 
     /// Updates streaks/counters/favorites after a successful drawing send.

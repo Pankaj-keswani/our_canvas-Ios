@@ -67,6 +67,8 @@ final class ReplayController: ObservableObject {
 struct ReplayView: View {
     let drawing: Drawing
     @StateObject private var controller: ReplayController
+    @State private var showingReactionsDetail = false
+    @State private var userProfiles: [String: User] = [:]
 
     init(drawing: Drawing) {
         self.drawing = drawing
@@ -74,50 +76,86 @@ struct ReplayView: View {
     }
 
     var body: some View {
-        VStack(spacing: 16) {
-            GeometryReader { geometry in
-                let size = min(geometry.size.width, geometry.size.height)
-                ZStack {
-                    Image(uiImage: controller.backgroundImage)
-                        .resizable()
-                        .scaledToFit()
-                    SwiftUI.Group {
-                        if let ink = controller.inkImage {
-                            Image(uiImage: ink)
-                                .resizable()
-                                .scaledToFit()
+        ScrollView {
+            VStack(spacing: 16) {
+                GeometryReader { geometry in
+                    let size = min(geometry.size.width, geometry.size.height)
+                    ZStack {
+                        Image(uiImage: controller.backgroundImage)
+                            .resizable()
+                            .scaledToFit()
+                        SwiftUI.Group {
+                            if let ink = controller.inkImage {
+                                Image(uiImage: ink)
+                                    .resizable()
+                                    .scaledToFit()
+                            }
+                        }
+                        ForEach(controller.stickers) { sticker in
+                            StickerElementView(sticker: sticker,
+                                               displaySize: size,
+                                               canvasSize: controller.canvasSide,
+                                               isSelected: false)
+                                .allowsHitTesting(false)
+                        }
+                        ForEach(controller.texts) { text in
+                            TextElementView(text: text,
+                                            displaySize: size,
+                                            canvasSize: controller.canvasSide,
+                                            isSelected: false)
+                                .allowsHitTesting(false)
                         }
                     }
-                    ForEach(controller.stickers) { sticker in
-                        StickerElementView(sticker: sticker,
-                                           displaySize: size,
-                                           canvasSize: controller.canvasSide,
-                                           isSelected: false)
-                            .allowsHitTesting(false)
-                    }
-                    ForEach(controller.texts) { text in
-                        TextElementView(text: text,
-                                        displaySize: size,
-                                        canvasSize: controller.canvasSide,
-                                        isSelected: false)
-                            .allowsHitTesting(false)
-                    }
+                    .frame(width: geometry.size.width, height: geometry.size.height)
                 }
-                .frame(width: geometry.size.width, height: geometry.size.height)
-            }
-            .aspectRatio(1, contentMode: .fit)
+                .aspectRatio(1, contentMode: .fit)
 
-            Button {
-                Task { await controller.play() }
-            } label: {
-                Label(controller.isPlaying ? "Replaying…" : (controller.isFinished ? "Replay Again" : "Play Replay"),
-                      systemImage: "play.circle.fill")
+                Button {
+                    Task { await controller.play() }
+                } label: {
+                    Label(controller.isPlaying ? "Replaying…" : (controller.isFinished ? "Replay Again" : "Play Replay"),
+                          systemImage: "play.circle.fill")
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(controller.isPlaying)
+
+                if !drawing.reactions.isEmpty {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Reactions")
+                            .font(.caption.weight(.semibold))
+                            .foregroundColor(.secondary)
+
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 8) {
+                                ForEach(Array(drawing.reactions.keys.sorted()), id: \.self) { key in
+                                    if let reactionInfo = drawing.reactions[key] {
+                                        ReactionChip(
+                                            reaction: reactionInfo,
+                                            user: userProfiles[reactionInfo.senderId],
+                                            onTap: { showingReactionsDetail = true }
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.top, 8)
+                }
             }
-            .buttonStyle(.borderedProminent)
-            .disabled(controller.isPlaying)
+            .padding()
         }
-        .padding()
         .navigationTitle("Doodle Replay")
         .navigationBarTitleDisplayMode(.inline)
+        .sheet(isPresented: $showingReactionsDetail) {
+            ReactionsDetailSheet(drawing: drawing, users: userProfiles)
+                .presentationDetents([.medium, .large])
+        }
+        .task {
+            let uids = Array(drawing.reactions.keys)
+            if !uids.isEmpty {
+                userProfiles = (try? await UserRepository.shared.getUsersBatch(uids: uids)) ?? [:]
+            }
+        }
     }
 }

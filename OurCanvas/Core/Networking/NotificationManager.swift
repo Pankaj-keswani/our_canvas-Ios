@@ -114,7 +114,10 @@ class NotificationManager: NSObject, ObservableObject, UNUserNotificationCenterD
 
             // Widget content refresh is not a user-facing notification — keep it.
             switch payload.type {
-            case .newDrawing, .newReaction, .newGameTurn, .guessResult, .memberJoined:
+            case .newDrawing:
+                WidgetPayloadStore.shared.refreshSelectedCircleWidget(targetDrawingId: payload.drawingId)
+                self.reloadWidgets()
+            case .newReaction, .newGameTurn, .guessResult, .memberJoined:
                 self.reloadWidgets()
             }
         }

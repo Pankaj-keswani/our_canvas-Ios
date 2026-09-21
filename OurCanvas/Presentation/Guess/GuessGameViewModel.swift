@@ -12,12 +12,33 @@ final class GuessGameViewModel: ObservableObject {
     @Published private(set) var cardState: GuessCardState = .noGame
     @Published var letterBank = LetterBankModel(bank: [], maxSlots: 0)
     @Published private(set) var isChecking = false
+    @Published private(set) var isRevealingLetter = false
     @Published private(set) var guessFeedback: String?
     @Published private(set) var drawerSecretWord: String?
     @Published private(set) var lastJudgeResult: JudgeResult?
     @Published var errorText: String?
     @Published private(set) var isLoading = true
     @Published var showGameCanvas = false
+    @Published var showCoinWallet = false
+
+    // MARK: - Coins and Hints
+    var userCoins: Int {
+        UserRepository.shared.currentUserProfile?.coins ?? 3
+    }
+
+    var hintCost: Int {
+        letterBank.lockedReveals.count + 1
+    }
+
+    var canRevealMoreLetters: Bool {
+        let maxSlots = game?.wordLength ?? letterBank.maxSlots
+        guard maxSlots > 1 else { return false }
+        return letterBank.lockedReveals.count < (maxSlots - 1)
+    }
+
+    var hasEnoughCoinsForHint: Bool {
+        userCoins >= hintCost
+    }
 
     // MARK: Dependencies
 
@@ -256,7 +277,54 @@ final class GuessGameViewModel: ObservableObject {
         }
     }
 
-    // MARK: - Takeover
+    // MARK: - Progressive Letter Hints
+    func revealLetterHint() {
+        guard case .guessing(let game, _) = cardState else { return }
+        guard canRevealMoreLetters, !isRevealingLetter, let uid = currentUID else { return }
+
+        guard hasEnoughCoinsForHint else {
+            showCoinWallet = true
+            return
+        }
+
+        let cost = hintCost
+        isRevealingLetter = true
+        Task {
+            do {
+                let deducted = try await UserRepository.shared.deductCoins(uid: uid, amount: cost)
+                guard deducted else {
+                    await MainActor.run {
+                        isRevealingLetter = false
+                        showCoinWallet = true
+                    }
+                    return
+                }
+
+                let revealedIndices = Array(letterBank.lockedReveals.keys)
+                let result = try await repository.revealLetter(gameId: game.id,
+                                                               userId: uid,
+                                                               revealedIndices: revealedIndices)
+                await MainActor.run {
+                    isRevealingLetter = false
+                    if !result.revealedLetter.isEmpty {
+                        letterBank.addLockedReveal(slotIndex: result.revealedIndex,
+                                                   letter: result.revealedLetter.uppercased())
+                    }
+                }
+            } catch {
+                await MainActor.run {
+                    isRevealingLetter = false
+                    errorText = AppError.from(error).message
+                }
+            }
+        }
+    }
+
+    // MARK: - Takeover & Claim
+
+    func claimTurn() {
+        startNewRound()
+    }
 
     var canTakeOver: Bool {
         guard let game else { return false }

@@ -36,12 +36,22 @@ struct JudgeResult: Equatable {
     var winnerName: String? = nil
 }
 
+/// Reveal letter response contract (worker → client).
+struct RevealLetterResult: Equatable {
+    var correct: Bool = false
+    var revealedIndex: Int = 0
+    var revealedLetter: String = ""
+}
+
 protocol GuessJudging {
     func judge(action: String,
                gameId: String,
                userId: String,
                userName: String,
                guess: String) async throws -> JudgeResult
+    func revealLetter(gameId: String,
+                      userId: String,
+                      revealedIndices: [Int]) async throws -> RevealLetterResult
 }
 
 /// Pure payload/response helpers (unit-tested) + the URLSession transport.
@@ -81,6 +91,28 @@ final class WorkerJudgeClient: GuessJudging {
         result.roundOver = FieldCast.bool(json["roundOver"]) ?? false
         result.lostRace = FieldCast.bool(json["lostRace"]) ?? false
         result.winnerName = FieldCast.string(json["winnerName"])
+        return result
+    }
+
+    static func revealLetterPayload(gameId: String,
+                                    userId: String,
+                                    revealedIndices: [Int]) -> [String: Any] {
+        [
+            "action": "revealLetter",
+            "gameId": gameId,
+            "userId": userId,
+            "revealedIndices": revealedIndices,
+        ]
+    }
+
+    static func parseRevealLetterResponse(_ data: Data) -> RevealLetterResult? {
+        guard let json = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else {
+            return nil
+        }
+        var result = RevealLetterResult()
+        result.correct = FieldCast.bool(json["correct"]) ?? false
+        result.revealedIndex = FieldCast.int(json["revealedIndex"]) ?? 0
+        result.revealedLetter = FieldCast.string(json["revealedLetter"]) ?? ""
         return result
     }
 
@@ -127,6 +159,34 @@ final class WorkerJudgeClient: GuessJudging {
             throw Self.error(forStatusCode: (response as? HTTPURLResponse)?.statusCode ?? -1)
         }
         guard let result = Self.parseResponse(data) else {
+            throw AppError.decodingFailed
+        }
+        return result
+    }
+
+    func revealLetter(gameId: String,
+                      userId: String,
+                      revealedIndices: [Int]) async throws -> RevealLetterResult {
+        guard let url = config.baseURL, config.isConfigured else {
+            throw AppError.underlying("Guess judging isn't configured for this build yet. Coming soon!")
+        }
+
+        let payload = Self.revealLetterPayload(gameId: gameId,
+                                               userId: userId,
+                                               revealedIndices: revealedIndices)
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue(config.apiKey, forHTTPHeaderField: "X-Api-Key")
+        request.httpBody = try JSONSerialization.data(withJSONObject: payload)
+        request.timeoutInterval = 15
+
+        let (data, response) = try await urlSession.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse,
+              (200..<300).contains(httpResponse.statusCode) else {
+            throw Self.error(forStatusCode: (response as? HTTPURLResponse)?.statusCode ?? -1)
+        }
+        guard let result = Self.parseRevealLetterResponse(data) else {
             throw AppError.decodingFailed
         }
         return result

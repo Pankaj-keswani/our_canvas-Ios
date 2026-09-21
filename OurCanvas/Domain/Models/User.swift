@@ -35,6 +35,7 @@ struct User: Identifiable {
     var whatsNewSeenVersion: Int = 0
     var fcmToken: String? = nil
     var onboardingVersion: Int = 0
+    var coins: Int = 3
 
     // Legacy iOS-only fields tolerated on read; not written anymore.
     var appStoreReceipt: String? = nil
@@ -76,6 +77,7 @@ extension User {
         user.whatsNewSeenVersion = FieldCast.int(data["whatsNewSeenVersion"]) ?? 0
         user.fcmToken = FieldCast.string(data["fcmToken"])
         user.onboardingVersion = FieldCast.int(data["onboardingVersion"]) ?? 0
+        user.coins = FieldCast.int(data["coins"]) ?? 3
         user.appStoreReceipt = FieldCast.string(data["appStoreReceipt"])
         user.lastRedeemedPromo = FieldCast.string(data["lastRedeemedPromo"])
         return user
@@ -104,6 +106,7 @@ extension User {
             "profilePictureBase64": "",
             "onboardingVersion": 0,
             "whatsNewSeenVersion": 0,
+            "coins": 3,
         ]
     }
 }
@@ -133,5 +136,9 @@ enum UserFieldUpdate {
 
     static func fcmToken(_ value: String) -> [String: Any] {
         ["fcmToken": value]
+    }
+
+    static func coins(_ value: Int) -> [String: Any] {
+        ["coins": value]
     }
 }

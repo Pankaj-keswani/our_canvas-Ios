@@ -5,11 +5,13 @@ import UIKit
 struct DrawingCard: View {
     let drawing: Drawing
     var senderName: String?
+    var userProfiles: [String: User] = [:]
     var onFavorite: () -> Void
     var onReact: (String, String) -> Void
     var onReplay: () -> Void
 
     @State private var showingReactionPalette = false
+    @State private var showingReactionsDetail = false
     @State private var customReaction = ""
     @State private var saveMessage: String?
 
@@ -41,6 +43,10 @@ struct DrawingCard: View {
             if showingReactionPalette {
                 reactionPalette
             }
+        }
+        .sheet(isPresented: $showingReactionsDetail) {
+            ReactionsDetailSheet(drawing: drawing, users: userProfiles)
+                .presentationDetents([.medium, .large])
         }
         .alert(item: bindingSaveMessage) { message in
             Alert(title: Text(message.text), dismissButton: .default(Text("OK")))
@@ -129,15 +135,11 @@ struct DrawingCard: View {
                     HStack(spacing: 8) {
                         ForEach(Array(drawing.reactions.keys.sorted()), id: \.self) { key in
                             if let reactionInfo = drawing.reactions[key] {
-                                HStack(spacing: 4) {
-                                    Text(reactionInfo.emoji)
-                                    Text(reactionInfo.senderName)
-                                        .font(.caption2)
-                                }
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 4)
-                                .background(Color.gray.opacity(0.1))
-                                .cornerRadius(12)
+                                ReactionChip(
+                                    reaction: reactionInfo,
+                                    user: userProfiles[reactionInfo.senderId],
+                                    onTap: { showingReactionsDetail = true }
+                                )
                             }
                         }
                     }

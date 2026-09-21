@@ -116,6 +116,10 @@ enum GuessCardState: Equatable {
     case drawingAsDrawer(game: GuessGame, word: String?)
     /// Everyone else while the round is in DRAWING — WaitingCard.
     case drawingWaiting(game: GuessGame)
+    /// Inactive drawer whose 24h window expired.
+    case turnExpiredDrawer(game: GuessGame)
+    /// Other circle members when drawer didn't draw within 24 hours.
+    case turnExpiredOthers(game: GuessGame, drawerName: String)
     /// Multiplayer guessing (eligible guesser, hasn't revealed).
     case guessing(game: GuessGame, revealedLocally: Bool)
     /// This user revealed — spectate until the round finishes.
@@ -129,8 +133,20 @@ enum GuessCardState: Equatable {
 
     static func derive(game: GuessGame?,
                        uid: String,
-                       localRevealedWord: String?) -> GuessCardState {
+                       localRevealedWord: String?,
+                       now: Date = Date()) -> GuessCardState {
         guard let game else { return .noGame }
+
+        // 24-hour turn expiration check (Android parity: DRAWING or FINISHED > 24h)
+        if GuessTakeover.isTurnExpired(game: game, now: now) {
+            let activeDrawerId = game.status == .finished ? game.nextDrawerId : game.drawerId
+            let activeDrawerName = game.status == .finished ? game.nextDrawerName : game.drawerName
+            if activeDrawerId == uid {
+                return .turnExpiredDrawer(game: game)
+            } else {
+                return .turnExpiredOthers(game: game, drawerName: activeDrawerName)
+            }
+        }
 
         if game.status == .finished {
             return .finished(game: game)
@@ -165,16 +181,22 @@ enum GuessCardState: Equatable {
     }
 }
 
-// MARK: - 24-hour takeover (pure logic, tested)
+// MARK: - 24-hour takeover & auto-pass (pure logic, tested)
 
 enum GuessTakeover {
     /// Android `TURN_TAKEOVER_MS` = 24 hours.
     static let takeoverInterval: TimeInterval = 24 * 60 * 60
 
-    static func canTakeOver(game: GuessGame, uid: String, now: Date = Date()) -> Bool {
-        guard game.status == .drawing, game.drawerId != uid else { return false }
+    static func isTurnExpired(game: GuessGame, now: Date = Date()) -> Bool {
+        guard game.status == .drawing || game.status == .finished else { return false }
         let reference = game.updatedAt ?? game.createdAt ?? now
         return now.timeIntervalSince(reference) >= takeoverInterval
+    }
+
+    static func canTakeOver(game: GuessGame, uid: String, now: Date = Date()) -> Bool {
+        guard isTurnExpired(game: game, now: now) else { return false }
+        let activeDrawerId = game.status == .finished ? game.nextDrawerId : game.drawerId
+        return activeDrawerId != uid
     }
 }
 

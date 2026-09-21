@@ -81,12 +81,32 @@ final class WidgetPayloadStore {
 
     // MARK: - Refresh pipeline (main app only)
 
-    /// Fetches the latest drawing for the selected circle and republishes the payload.
-    func refreshSelectedCircleWidget() {
+    /// Fetches the latest drawing for the selected circle (or specific targetDrawingId with progressive retry backoff) and republishes the payload.
+    func refreshSelectedCircleWidget(targetDrawingId: String? = nil, maxRetries: Int = 3) {
         guard let groupId = selectedGroupId else { return }
         Task {
             do {
-                let drawing = try await DrawingRepository().getLatestDrawing(groupId: groupId)
+                let drawingRepo = DrawingRepository()
+                var drawing: Drawing? = nil
+
+                if let targetId = targetDrawingId, !targetId.isEmpty {
+                    // Progressive retry backoff: attempt immediate, then 500ms, 1500ms
+                    let delays: [UInt64] = [0, 500_000_000, 1_500_000_000]
+                    for attempt in 0..<min(maxRetries, delays.count) {
+                        if delays[attempt] > 0 {
+                            try? await Task.sleep(nanoseconds: delays[attempt])
+                        }
+                        if let target = try? await drawingRepo.getDrawing(drawingId: targetId, preferServer: true) {
+                            drawing = target
+                            break
+                        }
+                    }
+                }
+
+                if drawing == nil {
+                    drawing = try await drawingRepo.getLatestDrawing(groupId: groupId, preferServer: true)
+                }
+
                 var payload = WidgetCirclePayload()
                 payload.groupId = groupId
 
@@ -97,7 +117,7 @@ final class WidgetPayloadStore {
                 }
 
                 if let drawing {
-                    payload.senderName = await senderName(for: drawing.senderId)
+                    payload.senderName = await self.senderName(for: drawing.senderId)
                     payload.drawingImageJPEGBase64 = Self.compactJPEGBase64(from: drawing.drawingData)
                     payload.updatedAt = drawing.sentAt ?? Date()
                 }

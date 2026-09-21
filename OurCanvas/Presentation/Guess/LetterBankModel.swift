@@ -9,18 +9,39 @@ struct LetterBankModel: Equatable {
     let bank: [String]
     let maxSlots: Int
     private(set) var usedIndices: [Int] = []
+    private(set) var lockedReveals: [Int: String] = [:] // slotIndex (0..<maxSlots) -> Character string
 
-    init(bank: [String], maxSlots: Int) {
+    init(bank: [String], maxSlots: Int, lockedReveals: [Int: String] = [:]) {
         self.bank = bank
         self.maxSlots = max(0, maxSlots)
+        self.lockedReveals = lockedReveals
     }
 
-    var isFull: Bool { usedIndices.count >= maxSlots }
+    var unrevealedSlotCount: Int {
+        max(0, maxSlots - lockedReveals.count)
+    }
 
-    var canDelete: Bool { !usedIndices.isEmpty }
+    var isFull: Bool {
+        usedIndices.count >= unrevealedSlotCount
+    }
+
+    var canDelete: Bool {
+        !usedIndices.isEmpty
+    }
 
     var currentAnswer: String {
-        usedIndices.compactMap { bank.indices.contains($0) ? bank[$0] : nil }.joined()
+        var result = ""
+        var userPickIter = usedIndices.compactMap { bank.indices.contains($0) ? bank[$0] : nil }.makeIterator()
+        for i in 0..<maxSlots {
+            if let locked = lockedReveals[i] {
+                result.append(locked)
+            } else if let userLetter = userPickIter.next() {
+                result.append(userLetter)
+            } else {
+                break
+            }
+        }
+        return result
     }
 
     var availableIndices: [Int] {
@@ -34,23 +55,51 @@ struct LetterBankModel: Equatable {
         usedIndices.append(index)
     }
 
-    /// Removes the most recently selected letter and returns its bank index
-    /// (so callers can restore the tile to the available bank).
+    /// Removes the most recently selected user letter and returns its bank index.
+    /// Locked reveals are never deleted.
     @discardableResult
     mutating func deleteLast() -> Int? {
         usedIndices.popLast()
     }
 
+    /// Resets only the user-selected tiles; locked reveals are preserved.
     mutating func reset() {
         usedIndices.removeAll()
+    }
+
+    mutating func addLockedReveal(slotIndex: Int, letter: String) {
+        lockedReveals[slotIndex] = letter
+        while usedIndices.count > unrevealedSlotCount {
+            usedIndices.popLast()
+        }
     }
 
     func isSelected(_ index: Int) -> Bool {
         usedIndices.contains(index)
     }
 
-    /// Order in which tiles were picked (slot content), used to render answer slots.
+    /// Detail for an answer slot at `index` (0..<maxSlots).
+    func slotDetail(at index: Int) -> (letter: String, isLocked: Bool)? {
+        if let locked = lockedReveals[index] {
+            return (locked, true)
+        }
+        var userSlotCount = 0
+        for i in 0..<index {
+            if lockedReveals[i] == nil {
+                userSlotCount += 1
+            }
+        }
+        if userSlotCount < usedIndices.count {
+            let bankIndex = usedIndices[userSlotCount]
+            if bank.indices.contains(bankIndex) {
+                return (bank[bankIndex], false)
+            }
+        }
+        return nil
+    }
+
+    /// Letters in slot order (0..<maxSlots).
     var slotLetters: [String] {
-        usedIndices.compactMap { bank.indices.contains($0) ? bank[$0] : nil }
+        (0..<maxSlots).compactMap { slotDetail(at: $0)?.letter }
     }
 }

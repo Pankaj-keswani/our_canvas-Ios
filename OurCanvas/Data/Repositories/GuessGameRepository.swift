@@ -144,7 +144,11 @@ final class GuessGameRepository {
                               guess: "")
     }
 
-    // MARK: - Takeover
+    func revealLetter(gameId: String, userId: String, revealedIndices: [Int]) async throws -> RevealLetterResult {
+        try await judge.revealLetter(gameId: gameId, userId: userId, revealedIndices: revealedIndices)
+    }
+
+    // MARK: - Takeover & Claim
 
     /// After TURN_TAKEOVER_MS with no drawing progress, an eligible member claims the
     /// pen. Timestamps stay server-authoritative via serverTimestamp().
@@ -154,5 +158,16 @@ final class GuessGameRepository {
             "drawerName": userName,
             "updatedAt": FieldValue.serverTimestamp(),
         ])
+    }
+
+    /// Claim pen after 24h turn expiration.
+    func claimTurn(groupId: String,
+                   memberIds: [String],
+                   userId: String,
+                   userName: String) async throws -> (gameId: String, pair: WordBank.Pair) {
+        try await createRound(groupId: groupId,
+                              memberIds: memberIds,
+                              drawerId: userId,
+                              drawerName: userName)
     }
 }

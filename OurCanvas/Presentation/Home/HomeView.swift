@@ -5,6 +5,7 @@ import Combine
 struct HomeView: View {
     @StateObject private var viewModel = HomeViewModel()
     @State private var showingWidgetConfig = false
+    @State private var showingCoinWallet = false
 
     var body: some View {
         ZStack {
@@ -32,6 +33,9 @@ struct HomeView: View {
         .navigationBarHidden(true)
         .sheet(isPresented: $showingWidgetConfig) {
             WidgetConfigView()
+        }
+        .sheet(isPresented: $showingCoinWallet) {
+            CoinWalletSheet()
         }
     }
 
@@ -63,6 +67,22 @@ struct HomeView: View {
             }
 
             Spacer()
+
+            Button {
+                showingCoinWallet = true
+            } label: {
+                HStack(spacing: 4) {
+                    Text("🪙")
+                        .font(.caption)
+                    Text("\(viewModel.currentUserProfile?.coins ?? 3)")
+                        .font(.caption.weight(.bold))
+                        .foregroundColor(.black)
+                }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 5)
+                .background(Capsule().fill(Color.yellow.opacity(0.3)))
+                .overlay(Capsule().strokeBorder(Color.yellow.opacity(0.6), lineWidth: 1))
+            }
 
             NavigationLink {
                 NotificationsView()

@@ -182,9 +182,9 @@ struct DrawingComposerView: View {
                     return
                 }
 
-                // Render background + ink + stickers + text into the exported bitmap (PNG,
-                // matching the Android send path).
-                guard let base64Image = engine.exportCompositePNGBase64() else {
+                // Render background + ink + stickers + text into the exported bitmap (JPEG 80%, max 1024px,
+                // matching the updated Android sync reliability spec).
+                guard let base64Image = engine.exportCompositeJPEGBase64(quality: 0.80, maxDimension: 1024) ?? engine.exportCompositePNGBase64() else {
                     throw AppError.underlying("We couldn't render your drawing. Please try again.")
                 }
 

@@ -13,6 +13,27 @@ struct GuessGameTabView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 16) {
+                // Top coin action row
+                HStack {
+                    Spacer()
+                    Button {
+                        viewModel.showCoinWallet = true
+                    } label: {
+                        HStack(spacing: 4) {
+                            Text("🪙")
+                                .font(.caption)
+                            Text("\(viewModel.userCoins)")
+                                .font(.caption.weight(.bold))
+                                .foregroundColor(.black)
+                        }
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
+                        .background(Capsule().fill(Color.yellow.opacity(0.3)))
+                        .overlay(Capsule().strokeBorder(Color.yellow.opacity(0.6), lineWidth: 1))
+                    }
+                }
+                .padding(.horizontal, 4)
+
                 if viewModel.isLoading {
                     ProgressView().padding(.top, 40)
                 } else {
@@ -27,6 +48,9 @@ struct GuessGameTabView: View {
                 }
             }
             .padding()
+        }
+        .sheet(isPresented: $viewModel.showCoinWallet) {
+            CoinWalletSheet()
         }
         .fullScreenCover(isPresented: $viewModel.showGameCanvas) {
             NavigationStack {
@@ -52,6 +76,11 @@ struct GuessGameTabView: View {
             } else {
                 WaitingCard(game: game)
             }
+        case .turnExpiredDrawer(let game):
+            TurnExpiredDrawerCard(game: game)
+        case .turnExpiredOthers(_, let drawerName):
+            TurnExpiredOthersCard(drawerName: drawerName,
+                                  onClaim: { viewModel.claimTurn() })
         case .guessing(let game, _):
             GuessingCard(viewModel: viewModel, game: game)
         case .gaveUpSpectate(let game, let revealedWord):
@@ -151,7 +180,7 @@ private struct WaitingCard: View {
     }
 }
 
-// MARK: - TakeoverCard (24h)
+// MARK: - TakeoverCard (24h legacy)
 
 private struct TakeoverCard: View {
     let drawerName: String
@@ -175,7 +204,56 @@ private struct TakeoverCard: View {
     }
 }
 
-// MARK: - GuessingCard (race mode + letter bank)
+// MARK: - Turn Expired Cards (24h Auto-pass)
+
+private struct TurnExpiredDrawerCard: View {
+    let game: GuessGame
+
+    var body: some View {
+        VStack(spacing: 14) {
+            Image(systemName: "hourglass.badge.exclamationmark")
+                .font(.system(size: 40))
+                .foregroundColor(BrandColor.warning)
+
+            Text("Your 24h turn window expired ⏳")
+                .font(.headline)
+                .multilineTextAlignment(.center)
+
+            Text("Your turn to draw passed because 24 hours elapsed. Anyone in the circle can now claim the pen!")
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+                .multilineTextAlignment(.center)
+        }
+        .glassCard()
+    }
+}
+
+private struct TurnExpiredOthersCard: View {
+    let drawerName: String
+    let onClaim: () -> Void
+
+    var body: some View {
+        VStack(spacing: 14) {
+            Image(systemName: "clock.arrow.circlepath")
+                .font(.system(size: 40))
+                .foregroundColor(BrandColor.warning)
+
+            Text("Turn passed ⏳")
+                .font(.headline)
+                .multilineTextAlignment(.center)
+
+            Text("\(drawerName) didn't draw within 24 hours.")
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+                .multilineTextAlignment(.center)
+
+            PrimaryGradientButton(title: "Claim Pen & Draw 🎨", action: onClaim)
+        }
+        .glassCard()
+    }
+}
+
+// MARK: - GuessingCard (race mode + progressive letter hints)
 
 private struct GuessingCard: View {
     @ObservedObject var viewModel: GuessGameViewModel
@@ -204,9 +282,9 @@ private struct GuessingCard: View {
                 DoodlePreviewView(strokeData: game.strokeData, height: 220)
             }
 
-            // Answer slots (wrapped rows)
-            AnswerSlotsView(letters: viewModel.letterBank.slotLetters,
-                            totalSlots: max(game.wordLength, viewModel.letterBank.slotLetters.count))
+            // Answer slots (wrapped rows with locked reveal styling)
+            AnswerSlotsView(letterBank: viewModel.letterBank,
+                            totalSlots: max(game.wordLength, viewModel.letterBank.maxSlots))
 
             // Letter bank (wrapped rows, no horizontal scrolling)
             LetterBankGridView(bank: viewModel.letterBank.bank,
@@ -214,10 +292,10 @@ private struct GuessingCard: View {
                                disabled: viewModel.isChecking || viewModel.letterBank.isFull,
                                onSelect: { viewModel.selectLetter(index: $0) })
 
-            if viewModel.isChecking {
+            if viewModel.isChecking || viewModel.isRevealingLetter {
                 HStack(spacing: 8) {
                     ProgressView()
-                    Text("Checking…")
+                    Text(viewModel.isRevealingLetter ? "Revealing letter…" : "Checking…")
                         .font(.subheadline)
                         .foregroundColor(.secondary)
                 }
@@ -250,8 +328,8 @@ private struct GuessingCard: View {
                         .cornerRadius(12)
                 }
                 // Delete disabled at ~30% alpha when empty or judging.
-                .opacity(viewModel.letterBank.canDelete && !viewModel.isChecking ? 1.0 : 0.3)
-                .disabled(!viewModel.letterBank.canDelete || viewModel.isChecking)
+                .opacity(viewModel.letterBank.canDelete && !viewModel.isChecking && !viewModel.isRevealingLetter ? 1.0 : 0.3)
+                .disabled(!viewModel.letterBank.canDelete || viewModel.isChecking || viewModel.isRevealingLetter)
                 .accessibilityLabel("Delete letter")
 
                 Button(action: { viewModel.submitLetterSelection() }) {
@@ -262,16 +340,41 @@ private struct GuessingCard: View {
                         .background(Capsule().fill(BrandGradient.primary))
                         .foregroundColor(.black)
                 }
-                .disabled(!viewModel.letterBank.isFull || viewModel.isChecking)
-                .opacity(viewModel.letterBank.isFull && !viewModel.isChecking ? 1.0 : 0.5)
+                .disabled(!viewModel.letterBank.isFull || viewModel.isChecking || viewModel.isRevealingLetter)
+                .opacity(viewModel.letterBank.isFull && !viewModel.isChecking && !viewModel.isRevealingLetter ? 1.0 : 0.5)
             }
 
-            Button("Reveal Word") {
-                viewModel.revealWord()
+            // Progressive Letter Reveal Hint Action
+            if !viewModel.canRevealMoreLetters {
+                Text("Final letter! Solve it! 🎯")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundColor(.secondary)
+                    .padding(.vertical, 6)
+            } else if viewModel.hasEnoughCoinsForHint {
+                Button {
+                    viewModel.revealLetterHint()
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "sparkles")
+                        Text("✨ Reveal Letter (\(viewModel.hintCost) 🪙)")
+                            .font(.subheadline.weight(.semibold))
+                    }
+                    .foregroundColor(BrandColor.primary)
+                }
+                .disabled(viewModel.isChecking || viewModel.isRevealingLetter)
+            } else {
+                Button {
+                    viewModel.showCoinWallet = true
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "play.rectangle.fill")
+                        Text("🎬 Get Coins (Watch Ad)")
+                            .font(.subheadline.weight(.semibold))
+                    }
+                    .foregroundColor(.orange)
+                }
+                .disabled(viewModel.isChecking || viewModel.isRevealingLetter)
             }
-            .font(.subheadline)
-            .foregroundColor(.secondary)
-            .disabled(viewModel.isChecking)
         }
         .glassCard()
     }
@@ -309,24 +412,32 @@ struct LetterBankGridView: View {
     }
 }
 
-// MARK: - Answer slots (wrapped rows)
+// MARK: - Answer slots (wrapped rows with locked reveal styling)
 
 struct AnswerSlotsView: View {
-    let letters: [String]
+    let letterBank: LetterBankModel
     let totalSlots: Int
 
     private let columns = [GridItem(.adaptive(minimum: 38, maximum: 46), spacing: 8)]
 
     var body: some View {
         LazyVGrid(columns: columns, spacing: 8) {
-            ForEach(0..<max(totalSlots, letters.count), id: \.self) { slot in
+            ForEach(0..<max(totalSlots, letterBank.maxSlots), id: \.self) { slot in
+                let detail = letterBank.slotDetail(at: slot)
+                let letter = detail?.letter ?? ""
+                let isLocked = detail?.isLocked ?? false
+
                 RoundedRectangle(cornerRadius: 8)
-                    .strokeBorder(BrandColor.primary.opacity(0.6), lineWidth: 1.5)
+                    .fill(isLocked ? Color.yellow.opacity(0.25) : Color.clear)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8)
+                            .strokeBorder(isLocked ? Color.yellow : BrandColor.primary.opacity(0.6), lineWidth: isLocked ? 2 : 1.5)
+                    )
                     .frame(height: 42)
                     .overlay(
-                        Text(slot < letters.count ? letters[slot] : "")
+                        Text(letter)
                             .font(.system(size: 18, weight: .bold, design: .rounded))
-                            .foregroundColor(BrandColor.textPrimary)
+                            .foregroundColor(isLocked ? Color.yellow.opacity(0.95) : BrandColor.textPrimary)
                     )
             }
         }

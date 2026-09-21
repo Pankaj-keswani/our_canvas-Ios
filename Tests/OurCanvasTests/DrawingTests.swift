@@ -547,4 +547,20 @@ final class EngineExportTests: XCTestCase {
         XCTAssertEqual(parsed.strokes.count, 1)
         XCTAssertEqual(parsed.strokes[0].brush, .basic)
     }
+
+    func testDownsamplingCapsMaxDimension() {
+        let engine = DrawingEngine(canvasSize: CGSize(width: 2000, height: 1500))
+        engine.beginStroke(at: CGPoint(x: 100, y: 100))
+        engine.extendStroke(to: CGPoint(x: 500, y: 500))
+        engine.endStroke()
+
+        let base64 = engine.exportCompositeJPEGBase64(quality: 0.80, maxDimension: 1024)
+        XCTAssertNotNil(base64)
+        let data = Data(base64Encoded: base64 ?? "")
+        let image = data.flatMap { UIImage(data: $0) }
+        XCTAssertNotNil(image)
+        if let image {
+            XCTAssertLessThanOrEqual(max(image.size.width, image.size.height), 1024)
+        }
+    }
 }

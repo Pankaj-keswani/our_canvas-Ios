@@ -401,16 +401,26 @@ final class DrawingEngine: ObservableObject {
                                        outputPixels: Int(canvasSize.width))
     }
 
-    /// Android send-path parity: PNG base64 (fixture-verified against DrawingRepository.kt).
-    func exportCompositePNGBase64() -> String? {
-        let image = exportCompositePNG()
-        guard let data = image.pngData() else { return nil }
+    /// Android send-path parity (spec update 2026-09-21): downsamples canvas bitmap so max dimension
+    /// is at most 1024px, applies JPEG 80% compression, and base64-encodes for Firestore document persistence.
+    /// This reduces document payload from ~800KB to ~40–60KB and prevents gRPC upload stalls on cellular networks.
+    func exportCompositeJPEGBase64(quality: CGFloat = 0.80, maxDimension: CGFloat = 1024) -> String? {
+        let maxSide = max(canvasSize.width, canvasSize.height)
+        let scale = maxSide > 0 ? min(1.0, maxDimension / maxSide) : 1.0
+        let targetPixels = Int(maxSide * scale)
+        let image = StrokeRenderer.renderComposite(background: background,
+                                                   strokes: strokes,
+                                                   stickers: stickers,
+                                                   texts: texts,
+                                                   canvasSize: canvasSize,
+                                                   outputPixels: max(1, targetPixels))
+        guard let data = image.jpegData(compressionQuality: quality) else { return nil }
         return data.base64EncodedString()
     }
 
-    func exportCompositeJPEGBase64(quality: CGFloat = 0.85) -> String? {
+    func exportCompositePNGBase64() -> String? {
         let image = exportCompositePNG()
-        guard let data = image.jpegData(compressionQuality: quality) else { return nil }
+        guard let data = image.pngData() else { return nil }
         return data.base64EncodedString()
     }
 

@@ -506,3 +506,70 @@ final class StrokeEnvelopeCompatibilityTests: XCTestCase {
         XCTAssertEqual(parsed.strokes[1].brush, .rainbow, "ordinal 4 = RAINBOW in current production order")
     }
 }
+
+// MARK: - 18. Turn expiration 24h cards
+
+final class TurnExpirationTests: XCTestCase {
+    func testTurnExpiredDrawerDerivation() {
+        let stale = Date().addingTimeInterval(-25 * 3600)
+        let game = GuessGame.from(documentID: "g", data: makeGameFixture(status: "DRAWING", drawerId: "drawer-1", updatedAt: stale))
+        let state = GuessCardState.derive(game: game, uid: "drawer-1", localRevealedWord: nil, now: Date())
+        XCTAssertEqual(state, .turnExpiredDrawer(game: game))
+    }
+
+    func testTurnExpiredOthersDerivation() {
+        let stale = Date().addingTimeInterval(-25 * 3600)
+        let game = GuessGame.from(documentID: "g", data: makeGameFixture(status: "DRAWING", drawerId: "drawer-1", updatedAt: stale))
+        let state = GuessCardState.derive(game: game, uid: "guesser-1", localRevealedWord: nil, now: Date())
+        XCTAssertEqual(state, .turnExpiredOthers(game: game, drawerName: "Riya"))
+    }
+}
+
+// MARK: - 19. Progressive letter hints & locked reveals
+
+final class ProgressiveHintTests: XCTestCase {
+    func testLockedRevealsArePreservedOnReset() {
+        var model = LetterBankModel(bank: ["C", "A", "T", "X"], maxSlots: 3, lockedReveals: [1: "A"])
+        model.select(index: 0) // "C"
+        XCTAssertEqual(model.currentAnswer, "CA")
+        model.reset()
+        XCTAssertEqual(model.currentAnswer, "A", "reset keeps locked reveal slots")
+    }
+
+    func testLockedRevealsNotDeletedByDeleteLast() {
+        var model = LetterBankModel(bank: ["C", "A", "T", "X"], maxSlots: 3, lockedReveals: [1: "A"])
+        model.select(index: 0) // "C" into slot 0
+        model.select(index: 2) // "T" into slot 2
+        XCTAssertEqual(model.currentAnswer, "CAT")
+
+        let deleted = model.deleteLast()
+        XCTAssertEqual(deleted, 2)
+        XCTAssertEqual(model.currentAnswer, "CA")
+    }
+
+    func testRevealLetterPayloadAndResponse() throws {
+        let payload = WorkerJudgeClient.revealLetterPayload(gameId: "g1", userId: "u1", revealedIndices: [0, 2])
+        XCTAssertEqual(payload["action"] as? String, "revealLetter")
+        XCTAssertEqual(payload["gameId"] as? String, "g1")
+        XCTAssertEqual(payload["userId"] as? String, "u1")
+        XCTAssertEqual(payload["revealedIndices"] as? [Int], [0, 2])
+
+        let json = """
+        {"correct":false,"revealedIndex":1,"revealedLetter":"p"}
+        """
+        let result = try XCTUnwrap(WorkerJudgeClient.parseRevealLetterResponse(Data(json.utf8)))
+        XCTAssertEqual(result.revealedIndex, 1)
+        XCTAssertEqual(result.revealedLetter, "p")
+    }
+
+    func testUserCoinsDefaultAndFields() {
+        var user = User.from(documentID: "u1", data: [:])
+        XCTAssertEqual(user.coins, 3, "default welcome coins is 3")
+
+        let fields = User.creationFields(uid: "u1", displayName: "Sam", email: "sam@example.com")
+        XCTAssertEqual(fields["coins"] as? Int, 3)
+
+        let update = UserFieldUpdate.coins(5)
+        XCTAssertEqual(update["coins"] as? Int, 5)
+    }
+}

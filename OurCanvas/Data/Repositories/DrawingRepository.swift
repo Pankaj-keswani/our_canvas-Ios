@@ -23,15 +23,52 @@ class DrawingRepository: ObservableObject {
             .updateData(["reactions.\(senderId)": reactionFields])
     }
 
-    func getLatestDrawing(groupId: String) async throws -> Drawing? {
-        let snapshot = try await db.collection("drawings")
+    /// Fetches the latest drawing for a circle with server source first, falling back to cache if offline.
+    func getLatestDrawing(groupId: String, preferServer: Bool = true) async throws -> Drawing? {
+        let query = db.collection("drawings")
             .whereField("groupId", isEqualTo: groupId)
             .order(by: "sentAt", descending: true)
             .limit(to: 1)
-            .getDocuments()
 
+        if preferServer {
+            do {
+                let snapshot = try await query.getDocuments(source: .server)
+                if let doc = snapshot.documents.first {
+                    return Drawing.from(documentID: doc.documentID, data: doc.data())
+                }
+            } catch {
+                // Fall back to cache on network error
+                let snapshot = try? await query.getDocuments(source: .cache)
+                if let doc = snapshot?.documents.first {
+                    return Drawing.from(documentID: doc.documentID, data: doc.data())
+                }
+            }
+        }
+
+        let snapshot = try await query.getDocuments()
         guard let doc = snapshot.documents.first else { return nil }
         return Drawing.from(documentID: doc.documentID, data: doc.data())
+    }
+
+    /// Fetches a specific drawing by ID with server source first.
+    func getDrawing(drawingId: String, preferServer: Bool = true) async throws -> Drawing? {
+        let docRef = db.collection("drawings").document(drawingId)
+        if preferServer {
+            do {
+                let snapshot = try await docRef.getDocument(source: .server)
+                if snapshot.exists, let data = snapshot.data() {
+                    return Drawing.from(documentID: snapshot.documentID, data: data)
+                }
+            } catch {
+                let snapshot = try? await docRef.getDocument(source: .cache)
+                if let snapshot, snapshot.exists, let data = snapshot.data() {
+                    return Drawing.from(documentID: snapshot.documentID, data: data)
+                }
+            }
+        }
+        let snapshot = try await docRef.getDocument()
+        guard snapshot.exists, let data = snapshot.data() else { return nil }
+        return Drawing.from(documentID: snapshot.documentID, data: data)
     }
 
     func listenToDrawings(groupId: String, completion: @escaping ([Drawing]) -> Void) -> ListenerRegistration {
