@@ -37,8 +37,6 @@ struct LetterBankModel: Equatable {
                 result.append(locked)
             } else if let userLetter = userPickIter.next() {
                 result.append(userLetter)
-            } else {
-                break
             }
         }
         return result
