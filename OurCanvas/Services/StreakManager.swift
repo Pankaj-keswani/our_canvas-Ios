@@ -9,6 +9,8 @@ struct StreakRecoveryInfo: Equatable {
     var streakToRecover: Int = 0
     var costCoins: Int = 0
     var isEligible: Bool = false
+
+    var brokenStreak: Int { streakToRecover }
 }
 
 /// Service managing streak calculation, eligibility checking, and atomic streak recovery.
@@ -26,12 +28,21 @@ final class StreakManager {
 
     // MARK: - Calculation with Recovered Dates
 
-    /// Calculates current streak, longest streak, and last active date from drawing dates and recovered dates.
+    /// Calculates current streak, longest streak, and last active date from drawing dates (Date) and recovered dates.
     static func calculateStreaks(drawingDates: [Date],
                                  recoveredDates: [String] = [],
                                  now: Date = Date()) -> (currentStreak: Int, longestStreak: Int, lastActiveDate: String) {
         let formatter = dayFormatter
-        var activeDates = Set(drawingDates.map { formatter.string(from: $0) })
+        let stringDates = drawingDates.map { formatter.string(from: $0) }
+        return calculateStreaks(drawingDates: stringDates, recoveredDates: recoveredDates, now: now)
+    }
+
+    /// Calculates current streak, longest streak, and last active date from drawing date strings (yyyy-MM-dd) and recovered dates.
+    static func calculateStreaks(drawingDates: [String],
+                                 recoveredDates: [String] = [],
+                                 now: Date = Date()) -> (currentStreak: Int, longestStreak: Int, lastActiveDate: String) {
+        let formatter = dayFormatter
+        var activeDates = Set(drawingDates.filter { !$0.isEmpty })
         for rec in recoveredDates where !rec.isEmpty {
             activeDates.insert(rec)
         }
