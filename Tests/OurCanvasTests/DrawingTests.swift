@@ -5,18 +5,18 @@ import UIKit
 // MARK: - A. Cross-platform stroke serialization
 
 final class StrokeSerializationTests: XCTestCase {
-    func testAllFourteenBrushIDsMatchAndroidOrder() {
+    func testAllSixteenBrushIDsMatchAndroidOrder() {
         let expected: [(BrushType, Int)] = [
             (.basic, 0), (.pencil, 1), (.marker, 2), (.neon, 3),
             (.rainbow, 4), (.glow, 5), (.calligraphy, 6), (.watercolor, 7),
             (.crayon, 8), (.airbrush, 9), (.pixel, 10), (.glitter, 11),
-            (.sketch, 12), (.eraser, 13),
+            (.sketch, 12), (.eraser, 13), (.fire, 14), (.aurora, 15),
         ]
         for (brush, id) in expected {
             XCTAssertEqual(brush.androidID, id, "\(brush.displayName) must serialize as Android id \(id)")
             XCTAssertEqual(BrushType.from(androidID: id), brush)
         }
-        XCTAssertEqual(BrushType.allCases.count, 14)
+        XCTAssertEqual(BrushType.allCases.count, 16)
     }
 
     func testUnknownAndroidIDFallsBackToBasic() {
@@ -37,7 +37,7 @@ final class StrokeSerializationTests: XCTestCase {
                                            canvasSize: CGSize(width: 1080, height: 1080))
         let parsed = StrokeSerializer.decode(json)
 
-        XCTAssertEqual(parsed.strokes.count, 14)
+        XCTAssertEqual(parsed.strokes.count, 16)
         XCTAssertEqual(parsed.background.template, .dots)
         XCTAssertEqual(parsed.background.colorHex, "#FDF6E3")
         XCTAssertEqual(parsed.canvasWidth, 1080)
