@@ -531,7 +531,7 @@ enum StrokeRenderer {
 
         // Bright core highlight
         ctx.saveGState()
-        setStroke((r: 0.8, green: 1.0, b: 1.0, a: 1.0), alpha: 0.75, ctx: ctx, cap: .round)
+        setStroke((r: 0.8, g: 1.0, b: 1.0, a: 1.0), alpha: 0.75, ctx: ctx, cap: .round)
         strokePath(stroke, in: ctx, widthFactor: 0.35)
         ctx.restoreGState()
 
