@@ -68,12 +68,7 @@ enum StrokeSerializer {
 
         if let bg = root["bg"] as? [String: Any] {
             let templateName = FieldCast.string(bg["t"])?.lowercased() ?? "plain"
-            let template = DrawingBackground.Template(rawValue: templateName)
-                ?? (templateName == "midnight_rose" || templateName == "midnightrose" ? .midnightRose : nil)
-                ?? (templateName == "aurora_borealis" || templateName == "auroraborealis" ? .auroraBorealis : nil)
-                ?? (templateName == "midnight_galaxy" || templateName == "midnightgalaxy" ? .midnightGalaxy : nil)
-                ?? (templateName == "vintage_parchment" || templateName == "parchment" ? .parchment : nil)
-                ?? .plain
+            let template = parseTemplate(templateName)
             parsed.background = DrawingBackground(
                 template: template,
                 colorHex: FieldCast.string(bg["c"]) ?? "#FFFFFF"
@@ -108,6 +103,24 @@ enum StrokeSerializer {
             }
         }
         return points
+    }
+
+    private static func parseTemplate(_ name: String) -> DrawingBackground.Template {
+        if let direct = DrawingBackground.Template(rawValue: name) {
+            return direct
+        }
+        switch name {
+        case "midnight_rose", "midnightrose":
+            return .midnightRose
+        case "aurora_borealis", "auroraborealis":
+            return .auroraBorealis
+        case "midnight_galaxy", "midnightgalaxy":
+            return .midnightGalaxy
+        case "vintage_parchment", "parchment":
+            return .parchment
+        default:
+            return .plain
+        }
     }
 
     // MARK: - Sticker data (Android field names: id/t/x/y/s/r — absolute coords, degrees)

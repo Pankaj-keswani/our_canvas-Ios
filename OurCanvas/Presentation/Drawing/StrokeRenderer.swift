@@ -599,10 +599,10 @@ enum StrokeRenderer {
         ctx.restoreGState()
 
         // Silky center ribbon highlight
-        let highlight = (r: min(1, comps.r * 1.35 + 0.15),
-                         g: min(1, comps.g * 1.35 + 0.15),
-                         b: min(1, comps.b * 1.35 + 0.15),
-                         a: 1.0)
+        let highlightR = min(CGFloat(1.0), comps.r * 1.35 + 0.15)
+        let highlightG = min(CGFloat(1.0), comps.g * 1.35 + 0.15)
+        let highlightB = min(CGFloat(1.0), comps.b * 1.35 + 0.15)
+        let highlight: (r: CGFloat, g: CGFloat, b: CGFloat, a: CGFloat) = (r: highlightR, g: highlightG, b: highlightB, a: 1.0)
         ctx.saveGState()
         setStroke(highlight, alpha: 0.65, ctx: ctx, cap: .round)
         strokePath(stroke, in: ctx, widthFactor: 0.35)
