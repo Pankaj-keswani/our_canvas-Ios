@@ -45,6 +45,8 @@ struct User: Identifiable {
     var unlockedBackgrounds: [String] = []
     var lastCoinRewardDate: String = ""
     var coinLoginStreak: Int = 0
+    var lastLoginDate: String = ""
+    var unlockedItems: [String] = []
 
     // Legacy iOS-only fields tolerated on read; not written anymore.
     var appStoreReceipt: String? = nil
@@ -52,20 +54,29 @@ struct User: Identifiable {
 
     var isPro: Bool { plan == "pro" }
 
+    func isItemUnlocked(_ item: String) -> Bool {
+        if isPro { return true }
+        let lower = item.lowercased()
+        if unlockedItems.contains(where: { $0.lowercased() == lower }) { return true }
+        if unlockedBrushes.contains(where: { $0.lowercased() == lower }) { return true }
+        if unlockedBackgrounds.contains(where: { $0.lowercased() == lower }) { return true }
+        return false
+    }
+
     func isBrushUnlocked(_ brush: BrushType) -> Bool {
         guard brush.isCoinUnlockable else { return true }
-        return unlockedBrushes.contains { item in
-            item.caseInsensitiveCompare(brush.coinUnlockId) == .orderedSame ||
-            item.caseInsensitiveCompare(brush.rawValue) == .orderedSame
-        }
+        if isPro { return true }
+        return isItemUnlocked(brush.coinUnlockId) ||
+               isItemUnlocked(brush.rawValue) ||
+               isItemUnlocked("brush_\(brush.rawValue)")
     }
 
     func isBackgroundUnlocked(_ template: DrawingBackground.Template) -> Bool {
         guard template.isCoinUnlockable else { return true }
-        return unlockedBackgrounds.contains { item in
-            item.caseInsensitiveCompare(template.coinUnlockId) == .orderedSame ||
-            item.caseInsensitiveCompare(template.rawValue) == .orderedSame
-        }
+        if isPro { return true }
+        return isItemUnlocked(template.coinUnlockId) ||
+               isItemUnlocked(template.rawValue) ||
+               isItemUnlocked("bg_\(template.rawValue)")
     }
 }
 
@@ -110,6 +121,8 @@ extension User {
         user.unlockedBackgrounds = FieldCast.stringArray(data["unlockedBackgrounds"]) ?? []
         user.lastCoinRewardDate = FieldCast.string(data["lastCoinRewardDate"]) ?? ""
         user.coinLoginStreak = FieldCast.int(data["coinLoginStreak"]) ?? 0
+        user.lastLoginDate = FieldCast.string(data["lastLoginDate"]) ?? ""
+        user.unlockedItems = FieldCast.stringArray(data["unlockedItems"]) ?? []
         user.createdAt = TimestampCast.date(data["createdAt"])
         user.appStoreReceipt = FieldCast.string(data["appStoreReceipt"])
         user.lastRedeemedPromo = FieldCast.string(data["lastRedeemedPromo"])
@@ -147,6 +160,8 @@ extension User {
             "unlockedBackgrounds": [String](),
             "lastCoinRewardDate": "",
             "coinLoginStreak": 0,
+            "lastLoginDate": "",
+            "unlockedItems": [String](),
             "createdAt": FieldValue.serverTimestamp(),
         ]
     }
@@ -201,5 +216,13 @@ enum UserFieldUpdate {
 
     static func unlockedBackgrounds(_ value: [String]) -> [String: Any] {
         ["unlockedBackgrounds": value]
+    }
+
+    static func unlockedItems(_ value: [String]) -> [String: Any] {
+        ["unlockedItems": value]
+    }
+
+    static func lastLoginDate(_ value: String) -> [String: Any] {
+        ["lastLoginDate": value]
     }
 }

@@ -158,4 +158,31 @@ final class CoinTipAndStreakTests: XCTestCase {
         XCTAssertNotNil(payload["groupName"])
         XCTAssertNotNil(payload["senderName"])
     }
+
+    // MARK: - Drawing Model Tip Metadata
+
+    func testDrawingDecodesTipCountAndTotalTips() {
+        let data: [String: Any] = [
+            "senderId": "user1",
+            "tipCount": 3,
+            "totalTips": 8,
+        ]
+        let drawing = Drawing.from(documentID: "d1", data: data)
+        XCTAssertEqual(drawing.tipCount, 3)
+        XCTAssertEqual(drawing.totalTips, 8)
+    }
+
+    func testDrawingDefaultTipsAreZero() {
+        let drawing = Drawing.from(documentID: "d2", data: ["senderId": "user1"])
+        XCTAssertEqual(drawing.tipCount, 0)
+        XCTAssertEqual(drawing.totalTips, 0)
+    }
+
+    // MARK: - Group OwnerId Parity
+
+    func testGroupOwnerIdMatchesCreatedBy() {
+        var group = Group()
+        group.createdBy = "owner_uid_123"
+        XCTAssertEqual(group.ownerId, "owner_uid_123")
+    }
 }

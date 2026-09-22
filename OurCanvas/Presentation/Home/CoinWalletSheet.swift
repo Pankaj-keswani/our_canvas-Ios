@@ -7,6 +7,29 @@ struct CoinWalletSheet: View {
     @ObservedObject private var userRepo = UserRepository.shared
     @StateObject private var adManager = RewardedAdManager.shared
 
+    @State private var unlockingItemId: String? = nil
+    @State private var storeErrorMessage: String? = nil
+    @State private var storeSuccessMessage: String? = nil
+
+    private struct StoreCatalogItem: Identifiable {
+        let id: String
+        let name: String
+        let category: String
+        let icon: String
+        let cost: Int
+    }
+
+    private let storeItems: [StoreCatalogItem] = [
+        StoreCatalogItem(id: "brush_velvet_ribbon", name: "Velvet Ribbon 🎀", category: "Brush", icon: "bookmark.fill", cost: 10),
+        StoreCatalogItem(id: "brush_fire_engine", name: "Fire Engine 🚒", category: "Brush", icon: "car.fill", cost: 15),
+        StoreCatalogItem(id: "bg_midnight_galaxy", name: "Midnight Galaxy 🌌", category: "Background", icon: "sparkles.rectangle.stack", cost: 10),
+        StoreCatalogItem(id: "bg_parchment", name: "Vintage Parchment 📜", category: "Background", icon: "doc.text.fill", cost: 15),
+        StoreCatalogItem(id: "FIRE", name: "Fire 🔥", category: "Brush", icon: "flame.fill", cost: 10),
+        StoreCatalogItem(id: "AURORA", name: "Aurora 🌌", category: "Brush", icon: "sparkles", cost: 20),
+        StoreCatalogItem(id: "MIDNIGHT_ROSE", name: "Midnight Rose 🌹", category: "Background", icon: "suit.heart.fill", cost: 10),
+        StoreCatalogItem(id: "AURORA_BOREALIS", name: "Aurora Borealis 🌌", category: "Background", icon: "moon.stars.fill", cost: 20),
+    ]
+
     var coins: Int {
         userRepo.currentUserProfile?.coins ?? 3
     }
@@ -81,6 +104,9 @@ struct CoinWalletSheet: View {
                             .cornerRadius(14)
                         }
                         .padding(.horizontal)
+
+                        // Store Catalog Section
+                        storeCatalogSection
 
                         // Rewarded Ad action
                         VStack(spacing: 12) {
@@ -237,5 +263,119 @@ struct CoinWalletSheet: View {
                 .foregroundColor(isToday ? BrandColor.primary : .secondary)
         }
         .frame(maxWidth: .infinity)
+    }
+
+    // MARK: - Store Catalog Section
+
+    private var storeCatalogSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Unlockable Brushes & Backgrounds 🎨")
+                .font(.headline)
+                .padding(.horizontal, 4)
+
+            if let success = storeSuccessMessage {
+                Text(success)
+                    .font(.caption.weight(.bold))
+                    .foregroundColor(.green)
+                    .padding(.horizontal, 4)
+            }
+
+            if let error = storeErrorMessage {
+                Text(error)
+                    .font(.caption.weight(.bold))
+                    .foregroundColor(.red)
+                    .padding(.horizontal, 4)
+            }
+
+            VStack(spacing: 8) {
+                ForEach(storeItems) { item in
+                    storeItemRow(item: item)
+                }
+            }
+        }
+        .padding(.horizontal)
+    }
+
+    @ViewBuilder
+    private func storeItemRow(item: StoreCatalogItem) -> some View {
+        let isUnlocked = userRepo.currentUserProfile?.isItemUnlocked(item.id) ?? false
+        let isPro = userRepo.currentUserProfile?.isPro ?? false
+
+        HStack(spacing: 12) {
+            Image(systemName: item.icon)
+                .font(.title2)
+                .foregroundColor(BrandColor.primary)
+                .frame(width: 36, height: 36)
+                .background(Circle().fill(BrandColor.primary.opacity(0.12)))
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(item.name)
+                    .font(.subheadline.weight(.semibold))
+                Text(item.category)
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+            }
+
+            Spacer()
+
+            if isPro {
+                Text("Pro 👑")
+                    .font(.caption.weight(.bold))
+                    .foregroundColor(Color.purple)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
+                    .background(Capsule().fill(Color.purple.opacity(0.15)))
+            } else if isUnlocked {
+                Text("Unlocked ✅")
+                    .font(.caption.weight(.semibold))
+                    .foregroundColor(.green)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
+                    .background(Capsule().fill(Color.green.opacity(0.15)))
+            } else {
+                Button {
+                    unlock(item)
+                } label: {
+                    if unlockingItemId == item.id {
+                        ProgressView()
+                            .scaleEffect(0.8)
+                            .frame(width: 60)
+                    } else {
+                        Text("\(item.cost) 🪙 Unlock")
+                            .font(.caption.weight(.bold))
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .background(Capsule().fill(coins >= item.cost ? BrandColor.primary : Color.gray))
+                    }
+                }
+                .disabled(unlockingItemId != nil || coins < item.cost)
+            }
+        }
+        .padding()
+        .background(Color(.secondarySystemGroupedBackground))
+        .cornerRadius(12)
+    }
+
+    private func unlock(_ item: StoreCatalogItem) {
+        guard let uid = Auth.auth().currentUser?.uid else { return }
+        unlockingItemId = item.id
+        storeErrorMessage = nil
+        storeSuccessMessage = nil
+
+        Task {
+            do {
+                _ = try await CoinManager.shared.unlockItem(userId: uid, itemId: item.id, cost: item.cost)
+                await MainActor.run {
+                    unlockingItemId = nil
+                    storeSuccessMessage = "Unlocked \(item.name)!"
+                }
+            } catch {
+                await MainActor.run {
+                    unlockingItemId = nil
+                    storeErrorMessage = error.localizedDescription
+                }
+            }
+        }
     }
 }

@@ -46,6 +46,8 @@ struct Drawing: Identifiable {
     var reactionSenderId: String = ""
 
     var reactions: [String: ReactionInfo] = [:]
+    var tipCount: Int = 0
+    var totalTips: Int = 0
 }
 
 extension Drawing {
@@ -66,6 +68,8 @@ extension Drawing {
         drawing.reaction = FieldCast.string(data["reaction"]) ?? ""
         drawing.reactionSenderName = FieldCast.string(data["reactionSenderName"]) ?? ""
         drawing.reactionSenderId = FieldCast.string(data["reactionSenderId"]) ?? ""
+        drawing.tipCount = FieldCast.int(data["tipCount"]) ?? 0
+        drawing.totalTips = FieldCast.int(data["totalTips"]) ?? 0
         if let reactionsRaw = data["reactions"] as? [String: [String: Any]] {
             drawing.reactions = reactionsRaw.mapValues { ReactionInfo.from(data: $0) }
         }

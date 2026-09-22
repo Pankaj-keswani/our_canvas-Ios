@@ -207,6 +207,12 @@ enum StrokeRenderer {
         case .aurora:
             // Tier 2 Coin brush: Chromatic dual-tone celestial ribbon (cyan to magenta) with stardust.
             drawAurora(stroke, in: ctx)
+
+        case .velvetRibbon:
+            drawVelvetRibbon(stroke, in: ctx, comps: comps)
+
+        case .fireEngine:
+            drawFireEngine(stroke, in: ctx)
         }
     }
 
@@ -575,6 +581,56 @@ enum StrokeRenderer {
         }
     }
 
+    private static func drawVelvetRibbon(_ stroke: Stroke,
+                                         in ctx: CGContext,
+                                         comps: (r: CGFloat, g: CGFloat, b: CGFloat, a: CGFloat)) {
+        guard stroke.points.count >= 2 else { return }
+
+        // Outer soft velvet sheen / shadow
+        ctx.saveGState()
+        setStroke(comps, alpha: 0.35, ctx: ctx, cap: .round)
+        strokePath(stroke, in: ctx, widthFactor: 1.25)
+        ctx.restoreGState()
+
+        // Main rich velvet body
+        ctx.saveGState()
+        setStroke(comps, alpha: 0.90, ctx: ctx, cap: .round)
+        strokePath(stroke, in: ctx, widthFactor: 1.0)
+        ctx.restoreGState()
+
+        // Silky center ribbon highlight
+        let highlight = (r: min(1, comps.r * 1.35 + 0.15),
+                         g: min(1, comps.g * 1.35 + 0.15),
+                         b: min(1, comps.b * 1.35 + 0.15),
+                         a: 1.0)
+        ctx.saveGState()
+        setStroke(highlight, alpha: 0.65, ctx: ctx, cap: .round)
+        strokePath(stroke, in: ctx, widthFactor: 0.35)
+        ctx.restoreGState()
+    }
+
+    private static func drawFireEngine(_ stroke: Stroke, in ctx: CGContext) {
+        guard stroke.points.count >= 2 else { return }
+
+        // Bold fire-engine scarlet body (#D32F2F)
+        ctx.saveGState()
+        setStroke((r: 0.83, g: 0.18, b: 0.18, a: 1.0), alpha: 0.95, ctx: ctx, cap: .round)
+        strokePath(stroke, in: ctx, widthFactor: 1.1)
+        ctx.restoreGState()
+
+        // Vibrant high-gloss crimson core (#FF3D00)
+        ctx.saveGState()
+        setStroke((r: 1.0, g: 0.24, b: 0.0, a: 1.0), alpha: 0.85, ctx: ctx, cap: .round)
+        strokePath(stroke, in: ctx, widthFactor: 0.6)
+        ctx.restoreGState()
+
+        // Gleaming reflective white-hot center streak
+        ctx.saveGState()
+        setStroke((r: 1.0, g: 0.9, b: 0.85, a: 1.0), alpha: 0.70, ctx: ctx, cap: .round)
+        strokePath(stroke, in: ctx, widthFactor: 0.2)
+        ctx.restoreGState()
+    }
+
     // MARK: - Background
 
     static func drawBackground(_ background: DrawingBackground, in ctx: CGContext, canvasRect: CGRect) {
@@ -698,6 +754,52 @@ enum StrokeRenderer {
             ctx.setLineCap(.round)
             ctx.setLineJoin(.round)
             ctx.strokePath()
+            ctx.restoreGState()
+
+        case .midnightGalaxy:
+            // Deep cosmic indigo/navy to dark violet gradient: #050515 to #100826 to #02020A
+            let top = UIColor(red: 0x05 / 255.0, green: 0x05 / 255.0, blue: 0x15 / 255.0, alpha: 1.0).cgColor
+            let mid = UIColor(red: 0x10 / 255.0, green: 0x08 / 255.0, blue: 0x26 / 255.0, alpha: 1.0).cgColor
+            let bot = UIColor(red: 0x02 / 255.0, green: 0x02 / 255.0, blue: 0x0A / 255.0, alpha: 1.0).cgColor
+            if let gradient = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(),
+                                         colors: [top, mid, bot] as CFArray,
+                                         locations: [0.0, 0.5, 1.0]) {
+                ctx.drawLinearGradient(gradient, start: .zero, end: CGPoint(x: 0, y: canvasRect.height), options: [])
+            }
+
+            // Scattered glowing galaxy starfield
+            var starRandom = SeededRandom(seed: 987654321)
+            let starCount = 65
+            for _ in 0..<starCount {
+                let sx = canvasRect.width * starRandom.next()
+                let sy = canvasRect.height * starRandom.next()
+                let radius = max(0.5, canvasRect.width * (0.0015 + 0.0035 * starRandom.next()))
+                let alpha = 0.35 + 0.65 * starRandom.next()
+                let isVioletStar = starRandom.next() > 0.6
+                if isVioletStar {
+                    ctx.setFillColor(red: 0.85, green: 0.65, blue: 1.0, alpha: alpha)
+                } else {
+                    ctx.setFillColor(red: 1.0, green: 1.0, blue: 1.0, alpha: alpha)
+                }
+                ctx.fillEllipse(in: CGRect(x: sx - radius, y: sy - radius, width: radius * 2, height: radius * 2))
+            }
+
+        case .parchment:
+            // Warm antique aged parchment gradient: #F4ECD8 to #E6D5B8 to #D8C29D
+            let top = UIColor(red: 0xF4 / 255.0, green: 0xEC / 255.0, blue: 0xD8 / 255.0, alpha: 1.0).cgColor
+            let mid = UIColor(red: 0xE6 / 255.0, green: 0xD5 / 255.0, blue: 0xB8 / 255.0, alpha: 1.0).cgColor
+            let bot = UIColor(red: 0xD8 / 255.0, green: 0xC2 / 255.0, blue: 0x9D / 255.0, alpha: 1.0).cgColor
+            if let gradient = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(),
+                                         colors: [top, mid, bot] as CFArray,
+                                         locations: [0.0, 0.6, 1.0]) {
+                ctx.drawLinearGradient(gradient, start: .zero, end: CGPoint(x: 0, y: canvasRect.height), options: [])
+            }
+
+            // Subtle aged vignette border
+            ctx.saveGState()
+            ctx.setStrokeColor(red: 0.55, green: 0.40, blue: 0.25, alpha: 0.15)
+            ctx.setLineWidth(canvasRect.width * 0.04)
+            ctx.stroke(canvasRect)
             ctx.restoreGState()
         }
     }

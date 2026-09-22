@@ -49,7 +49,7 @@ struct FeedView: View {
         }
         .sheet(item: $replayDrawing) { drawing in
             NavigationStack {
-                ReplayView(drawing: drawing)
+                ReplayView(drawing: drawing, group: viewModel.group)
             }
         }
         .alert("Something went wrong", isPresented: Binding(
@@ -294,7 +294,7 @@ struct MembersSheet: View {
     /// non-owners never see the pencil and the backend denies any manual write.
     private var isOwner: Bool {
         guard let uid = Auth.auth().currentUser?.uid else { return false }
-        return group.createdBy == uid
+        return group.ownerId == uid || group.createdBy == uid
     }
 
     private var canSaveRename: Bool {

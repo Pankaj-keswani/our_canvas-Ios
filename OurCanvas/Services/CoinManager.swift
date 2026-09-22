@@ -150,6 +150,65 @@ final class CoinManager {
         return finalBalance
     }
 
+    /// Atomically unlocks an item (brush or background) by identifier using coins.
+    @discardableResult
+    func unlockItem(userId: String, itemId: String, cost: Int) async throws -> Int {
+        let userRef = db.collection("users").document(userId)
+        let newCoins = try await db.runTransaction { (transaction, errorPointer) -> Any? in
+            let snapshot: DocumentSnapshot
+            do {
+                snapshot = try transaction.getDocument(userRef)
+            } catch let fetchError as NSError {
+                errorPointer?.pointee = fetchError
+                return nil
+            }
+
+            let data = snapshot.data() ?? [:]
+            let currentCoins = FieldCast.int(data["coins"]) ?? 3
+            var unlocked = FieldCast.stringArray(data["unlockedItems"]) ?? []
+
+            if unlocked.contains(where: { $0.caseInsensitiveCompare(itemId) == .orderedSame }) {
+                return currentCoins
+            }
+
+            guard currentCoins >= cost else {
+                let error = NSError(domain: "OurCanvas",
+                                    code: 402,
+                                    userInfo: [NSLocalizedDescriptionKey: "Insufficient coins. You need \(cost) coins to unlock this item."])
+                errorPointer?.pointee = error
+                return nil
+            }
+
+            let balance = currentCoins - cost
+            unlocked.append(itemId)
+
+            var updatePayload: [String: Any] = [
+                "coins": balance,
+                "unlockedItems": unlocked,
+            ]
+
+            if itemId.hasPrefix("brush_") || itemId == "FIRE" || itemId == "AURORA" {
+                var brushes = FieldCast.stringArray(data["unlockedBrushes"]) ?? []
+                if !brushes.contains(itemId) { brushes.append(itemId) }
+                updatePayload["unlockedBrushes"] = brushes
+            } else if itemId.hasPrefix("bg_") || itemId == "MIDNIGHT_ROSE" || itemId == "AURORA_BOREALIS" {
+                var bgs = FieldCast.stringArray(data["unlockedBackgrounds"]) ?? []
+                if !bgs.contains(itemId) { bgs.append(itemId) }
+                updatePayload["unlockedBackgrounds"] = bgs
+            }
+
+            transaction.updateData(updatePayload, forDocument: userRef)
+            return balance
+        }
+
+        guard let finalBalance = newCoins as? Int else {
+            throw AppError.underlying("Insufficient coins to unlock \(itemId).")
+        }
+
+        _ = try? await UserRepository.shared.getUser(uid: userId, ignoreCache: true)
+        return finalBalance
+    }
+
     // MARK: - Daily Coin Reward (streak-aware)
 
     /// Result of a daily coin claim attempt.
@@ -174,7 +233,7 @@ final class CoinManager {
     /// - Day 7: award +5 coins (jackpot), then reset streak to 0 so next day starts at 1.
     @discardableResult
     func claimDailyCoinIfEligible(userId: String,
-                                  timeZone: TimeZone = .current,
+                                  timeZone: TimeZone = TimeZone(secondsFromGMT: 0) ?? .current,
                                   referenceDate: Date = Date()) async throws -> DailyRewardResult {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd"
@@ -205,7 +264,7 @@ final class CoinManager {
                 }
 
                 let data = snapshot.data() ?? [:]
-                let lastDate = FieldCast.string(data["lastCoinRewardDate"]) ?? ""
+                let lastDate = FieldCast.string(data["lastCoinRewardDate"]) ?? FieldCast.string(data["lastLoginDate"]) ?? ""
 
                 // Already claimed today.
                 if lastDate == todayStr {
@@ -230,7 +289,9 @@ final class CoinManager {
                 transaction.updateData([
                     "coins":              currentCoins + coinsAwarded,
                     "lastCoinRewardDate": todayStr,
+                    "lastLoginDate":      todayStr,
                     "coinLoginStreak":    finalStreak,
+                    "currentStreak":      newStreak,
                 ], forDocument: userRef)
 
                 return TxResult(coinsAwarded: coinsAwarded, streakDay: newStreak, isJackpot: isJackpot)
@@ -258,7 +319,7 @@ final class CoinManager {
 
     /// POSTs a `sendCoinTip` action to the Cloudflare Push Relay Worker.
     /// The worker atomically deducts from sender, credits recipient, fires push + in-app notification.
-    /// Never write the tip directly with the client SDK — Firestore rules block cross-user writes.
+    /// Also updates the doodle document's tipCount and totalTips metadata in Firestore.
     func sendCoinTip(senderId: String,
                      recipientId: String,
                      amount: Int,
@@ -292,6 +353,13 @@ final class CoinManager {
             let code = (response as? HTTPURLResponse)?.statusCode ?? -1
             throw AppError.underlying("Tip failed (HTTP \(code)). Please try again.")
         }
+
+        // Record tipping event in the doodle metadata
+        let drawingRef = db.collection("drawings").document(drawingId)
+        try? await drawingRef.updateData([
+            "tipCount": FieldValue.increment(Int64(1)),
+            "totalTips": FieldValue.increment(Int64(amount)),
+        ])
 
         // Refresh sender's coin balance from Firestore after successful tip.
         _ = try? await UserRepository.shared.getUser(uid: senderId, ignoreCache: true)

@@ -24,6 +24,8 @@ enum BrushType: String, CaseIterable, Hashable {
     case eraser
     case fire
     case aurora
+    case velvetRibbon
+    case fireEngine
 
     var androidID: Int {
         switch self {
@@ -43,6 +45,8 @@ enum BrushType: String, CaseIterable, Hashable {
         case .eraser: return 13
         case .fire: return 14
         case .aurora: return 15
+        case .velvetRibbon: return 16
+        case .fireEngine: return 17
         }
     }
 
@@ -64,6 +68,8 @@ enum BrushType: String, CaseIterable, Hashable {
         case 13: return .eraser
         case 14: return .fire
         case 15: return .aurora
+        case 16: return .velvetRibbon
+        case 17: return .fireEngine
         default: return .basic
         }
     }
@@ -86,6 +92,8 @@ enum BrushType: String, CaseIterable, Hashable {
         case .eraser: return "Eraser"
         case .fire: return "Fire 🔥"
         case .aurora: return "Aurora 🌌"
+        case .velvetRibbon: return "Velvet Ribbon 🎀"
+        case .fireEngine: return "Fire Engine 🚒"
         }
     }
 
@@ -107,6 +115,8 @@ enum BrushType: String, CaseIterable, Hashable {
         case .eraser: return "eraser"
         case .fire: return "flame.fill"
         case .aurora: return "sparkles"
+        case .velvetRibbon: return "bookmark.fill"
+        case .fireEngine: return "car.fill"
         }
     }
 
@@ -114,6 +124,8 @@ enum BrushType: String, CaseIterable, Hashable {
         switch self {
         case .fire: return 10
         case .aurora: return 20
+        case .velvetRibbon: return 10
+        case .fireEngine: return 15
         default: return 0
         }
     }
@@ -126,6 +138,8 @@ enum BrushType: String, CaseIterable, Hashable {
         switch self {
         case .fire: return "FIRE"
         case .aurora: return "AURORA"
+        case .velvetRibbon: return "brush_velvet_ribbon"
+        case .fireEngine: return "brush_fire_engine"
         default: return ""
         }
     }
@@ -232,6 +246,8 @@ struct DrawingBackground: Equatable {
         case gradient
         case midnightRose = "midnight_rose"
         case auroraBorealis = "aurora_borealis"
+        case midnightGalaxy = "midnight_galaxy"
+        case parchment = "vintage_parchment"
 
         var displayName: String {
             switch self {
@@ -241,6 +257,8 @@ struct DrawingBackground: Equatable {
             case .gradient: return "Gradient"
             case .midnightRose: return "Midnight Rose 🌹"
             case .auroraBorealis: return "Aurora 🌌"
+            case .midnightGalaxy: return "Midnight Galaxy 🌌"
+            case .parchment: return "Vintage Parchment 📜"
             }
         }
 
@@ -248,6 +266,8 @@ struct DrawingBackground: Equatable {
             switch self {
             case .midnightRose: return 10
             case .auroraBorealis: return 20
+            case .midnightGalaxy: return 10
+            case .parchment: return 15
             default: return 0
             }
         }
@@ -260,6 +280,8 @@ struct DrawingBackground: Equatable {
             switch self {
             case .midnightRose: return "MIDNIGHT_ROSE"
             case .auroraBorealis: return "AURORA_BOREALIS"
+            case .midnightGalaxy: return "bg_midnight_galaxy"
+            case .parchment: return "bg_parchment"
             default: return ""
             }
         }

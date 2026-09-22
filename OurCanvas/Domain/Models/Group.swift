@@ -11,6 +11,8 @@ struct Group: Identifiable {
     var createdAt: Int64? = nil
     var inviteCode: String = ""
     var memberIds: [String] = []
+
+    var ownerId: String { createdBy }
 }
 
 extension Group {

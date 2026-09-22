@@ -1,5 +1,6 @@
 import SwiftUI
 import UIKit
+import FirebaseAuth
 
 /// Stroke-by-stroke doodle replay. Reuses the same `StrokeRenderer` as the editor and
 /// export, so replay is visually identical to what was drawn. The Guess My Doodle phase
@@ -66,12 +67,15 @@ final class ReplayController: ObservableObject {
 /// Feed replay sheet: background + progressive ink + static elements on top.
 struct ReplayView: View {
     let drawing: Drawing
+    var group: Group?
     @StateObject private var controller: ReplayController
     @State private var showingReactionsDetail = false
+    @State private var showingCoinTip = false
     @State private var userProfiles: [String: User] = [:]
 
-    init(drawing: Drawing) {
+    init(drawing: Drawing, group: Group? = nil) {
         self.drawing = drawing
+        self.group = group
         _controller = StateObject(wrappedValue: ReplayController(drawing: drawing))
     }
 
@@ -119,6 +123,19 @@ struct ReplayView: View {
                 .buttonStyle(.borderedProminent)
                 .disabled(controller.isPlaying)
 
+                if drawing.totalTips > 0 {
+                    HStack(spacing: 6) {
+                        Text("🎁")
+                        Text("\(drawing.totalTips) Coins gifted (\(drawing.tipCount) tips)")
+                            .font(.caption.weight(.bold))
+                            .foregroundColor(Color(hexString: "#92400E"))
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .background(Color(hexString: "#FEF3C7"))
+                    .cornerRadius(12)
+                }
+
                 if !drawing.reactions.isEmpty {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Reactions")
@@ -147,12 +164,43 @@ struct ReplayView: View {
         }
         .navigationTitle("Doodle Replay")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            if drawing.senderId != Auth.auth().currentUser?.uid {
+                ToolbarItem(placement: .primaryAction) {
+                    Button {
+                        showingCoinTip = true
+                    } label: {
+                        HStack(spacing: 4) {
+                            Text("🎁")
+                            Text("Tip")
+                                .font(.subheadline.weight(.bold))
+                        }
+                        .foregroundColor(Color(hexString: "#92400E"))
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 4)
+                        .background(Color(hexString: "#FEF3C7"))
+                        .cornerRadius(12)
+                    }
+                }
+            }
+        }
+        .sheet(isPresented: $showingCoinTip) {
+            CoinTipSheet(
+                drawing: drawing,
+                group: group ?? Group(),
+                recipientName: userProfiles[drawing.senderId]?.displayName ?? "Artist"
+            )
+            .presentationDetents([.medium, .large])
+        }
         .sheet(isPresented: $showingReactionsDetail) {
             ReactionsDetailSheet(drawing: drawing, users: userProfiles)
                 .presentationDetents([.medium, .large])
         }
         .task {
-            let uids = Array(drawing.reactions.keys)
+            var uids = Array(drawing.reactions.keys)
+            if !drawing.senderId.isEmpty && !uids.contains(drawing.senderId) {
+                uids.append(drawing.senderId)
+            }
             if !uids.isEmpty {
                 userProfiles = (try? await UserRepository.shared.getUsersBatch(uids: uids)) ?? [:]
             }

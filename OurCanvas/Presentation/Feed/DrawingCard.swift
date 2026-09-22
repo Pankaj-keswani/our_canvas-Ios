@@ -192,6 +192,20 @@ struct DrawingCard: View {
                             Capsule().strokeBorder(Color(hexString: "#F59E0B"), lineWidth: 1)
                         )
                     }
+                    .buttonStyle(.plain)
+                }
+
+                if drawing.totalTips > 0 {
+                    HStack(spacing: 3) {
+                        Text("🎁")
+                            .font(.caption2)
+                        Text("\(drawing.totalTips)")
+                            .font(.caption2.weight(.bold))
+                            .foregroundColor(Color(hexString: "#92400E"))
+                    }
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 3)
+                    .background(Capsule().fill(Color(hexString: "#FEF3C7")))
                 }
 
                 Spacer()

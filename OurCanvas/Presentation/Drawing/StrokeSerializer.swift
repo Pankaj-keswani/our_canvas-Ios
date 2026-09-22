@@ -71,6 +71,8 @@ enum StrokeSerializer {
             let template = DrawingBackground.Template(rawValue: templateName)
                 ?? (templateName == "midnight_rose" || templateName == "midnightrose" ? .midnightRose : nil)
                 ?? (templateName == "aurora_borealis" || templateName == "auroraborealis" ? .auroraBorealis : nil)
+                ?? (templateName == "midnight_galaxy" || templateName == "midnightgalaxy" ? .midnightGalaxy : nil)
+                ?? (templateName == "vintage_parchment" || templateName == "parchment" ? .parchment : nil)
                 ?? .plain
             parsed.background = DrawingBackground(
                 template: template,
