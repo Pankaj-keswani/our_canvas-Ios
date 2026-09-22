@@ -128,4 +128,5 @@ private final class MockProfileNil: UserProfileProviding {
                               fallbackDisplayName: String?,
                               fallbackEmail: String?) async throws -> User { User() }
     func updateFields(uid: String, _ fields: [String: Any]) async throws {}
+    func completeOnboarding(uid: String, version: Int) async throws {}
 }
