@@ -181,6 +181,28 @@ struct CoinWalletSheet: View {
         .cornerRadius(14)
     }
 
+    private func blockFill(isCompleted: Bool, isToday: Bool) -> Color {
+        if isCompleted {
+            return Color.green.opacity(0.2)
+        } else if isToday {
+            return Color.yellow.opacity(0.3)
+        } else {
+            return Color(.tertiarySystemGroupedBackground)
+        }
+    }
+
+    private func blockStrokeColor(isCompleted: Bool, isToday: Bool, isJackpot: Bool) -> Color {
+        if isCompleted {
+            return Color.green.opacity(0.5)
+        } else if isToday {
+            return Color.yellow
+        } else if isJackpot {
+            return Color.orange.opacity(0.6)
+        } else {
+            return Color.clear
+        }
+    }
+
     @ViewBuilder
     private func streakDayBlock(day: Int) -> some View {
         let isCompleted = day < currentCycleDay
@@ -190,16 +212,11 @@ struct CoinWalletSheet: View {
         VStack(spacing: 4) {
             ZStack {
                 RoundedRectangle(cornerRadius: 8)
-                    .fill(isCompleted ? Color.green.opacity(0.2)
-                          : isToday    ? Color.yellow.opacity(0.3)
-                          : Color(.tertiarySystemGroupedBackground))
+                    .fill(blockFill(isCompleted: isCompleted, isToday: isToday))
                     .overlay(
                         RoundedRectangle(cornerRadius: 8)
                             .strokeBorder(
-                                isCompleted ? Color.green.opacity(0.5)
-                                : isToday    ? Color.yellow
-                                : isJackpot  ? Color.orange.opacity(0.6)
-                                : Color.clear,
+                                blockStrokeColor(isCompleted: isCompleted, isToday: isToday, isJackpot: isJackpot),
                                 lineWidth: isToday ? 2 : 1
                             )
                     )

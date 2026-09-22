@@ -1,6 +1,13 @@
 import SwiftUI
 import FirebaseAuth
 
+struct TipOption: Identifiable {
+    let amount: Int
+    let label: String
+    let emoji: String
+    var id: Int { amount }
+}
+
 /// Bottom sheet for gifting coins to another user's drawing.
 /// Tip amounts: 1 🪙 "Nice!", 2 🪙 "Awesome!", 5 🪙 "Masterpiece!"
 /// Uses the Cloudflare Worker for the atomic deduct+credit — never writes another user's doc directly.
@@ -25,119 +32,20 @@ struct CoinTipSheet: View {
         currentCoins >= selectedAmount
     }
 
-    private let tipOptions: [(amount: Int, label: String, emoji: String)] = [
-        (1, "Nice!", "😊"),
-        (2, "Awesome!", "🤩"),
-        (5, "Masterpiece!", "🎨"),
+    private let tipOptions: [TipOption] = [
+        TipOption(amount: 1, label: "Nice!", emoji: "😊"),
+        TipOption(amount: 2, label: "Awesome!", emoji: "🤩"),
+        TipOption(amount: 5, label: "Masterpiece!", emoji: "🎨"),
     ]
 
     var body: some View {
         NavigationStack {
             VStack(spacing: 24) {
-                // Recipient heading
-                VStack(spacing: 6) {
-                    Text("Gift Coins to \(recipientName) 🎁")
-                        .font(.headline)
-                        .multilineTextAlignment(.center)
-                    Text("🪙 \(currentCoins) Coins available")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                }
-                .padding(.top, 8)
-
-                // Amount chips
-                HStack(spacing: 12) {
-                    ForEach(tipOptions, id: \.amount) { option in
-                        Button {
-                            selectedAmount = option.amount
-                        } label: {
-                            VStack(spacing: 6) {
-                                Text(option.emoji)
-                                    .font(.title2)
-                                Text("\(option.amount) 🪙")
-                                    .font(.subheadline.weight(.bold))
-                                    .foregroundColor(selectedAmount == option.amount ? .black : .primary)
-                                Text(option.label)
-                                    .font(.caption2)
-                                    .foregroundColor(selectedAmount == option.amount ? .black.opacity(0.7) : .secondary)
-                            }
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 14)
-                            .background(
-                                RoundedRectangle(cornerRadius: 14)
-                                    .fill(selectedAmount == option.amount
-                                          ? Color.yellow.opacity(0.85)
-                                          : Color(.secondarySystemGroupedBackground))
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 14)
-                                            .strokeBorder(selectedAmount == option.amount
-                                                          ? Color.yellow : Color.clear,
-                                                          lineWidth: 2)
-                                    )
-                            )
-                        }
-                        .buttonStyle(.plain)
-                        .disabled(option.amount > currentCoins)
-                        .opacity(option.amount > currentCoins ? 0.4 : 1.0)
-                    }
-                }
-                .padding(.horizontal)
-
-                // Insufficient coins warning
-                if !hasSufficientCoins {
-                    Label("Not enough coins — watch an ad to earn more!", systemImage: "exclamationmark.triangle.fill")
-                        .font(.caption)
-                        .foregroundColor(.orange)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal)
-                }
-
-                // Error
-                if let errorMessage {
-                    Text(errorMessage)
-                        .font(.caption)
-                        .foregroundColor(.red)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal)
-                }
-
-                // Success
-                if didSend {
-                    Label("Tip sent! 🎉", systemImage: "checkmark.circle.fill")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundColor(.green)
-                }
-
+                recipientHeader
+                amountChips
+                statusSection
                 Spacer()
-
-                // Action buttons
-                VStack(spacing: 12) {
-                    Button {
-                        sendTip()
-                    } label: {
-                        Group {
-                            if isSending {
-                                ProgressView()
-                                    .tint(.black)
-                            } else {
-                                Text("Send \(selectedAmount) 🪙")
-                                    .font(.headline)
-                            }
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 14)
-                        .background(Capsule().fill(BrandGradient.primary))
-                        .foregroundColor(.black)
-                    }
-                    .disabled(!hasSufficientCoins || isSending || didSend)
-                    .opacity(hasSufficientCoins && !isSending && !didSend ? 1.0 : 0.5)
-
-                    Button("Cancel") { dismiss() }
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                }
-                .padding(.horizontal)
-                .padding(.bottom, 20)
+                actionButtons
             }
             .navigationTitle("Gift Coins 🎁")
             .navigationBarTitleDisplayMode(.inline)
@@ -148,6 +56,125 @@ struct CoinTipSheet: View {
             }
         }
     }
+
+    // MARK: - Subviews
+
+    private var recipientHeader: some View {
+        VStack(spacing: 6) {
+            Text("Gift Coins to \(recipientName) 🎁")
+                .font(.headline)
+                .multilineTextAlignment(.center)
+            Text("🪙 \(currentCoins) Coins available")
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+        }
+        .padding(.top, 8)
+    }
+
+    private var amountChips: some View {
+        HStack(spacing: 12) {
+            ForEach(tipOptions) { option in
+                chipButton(for: option)
+            }
+        }
+        .padding(.horizontal)
+    }
+
+    @ViewBuilder
+    private func chipButton(for option: TipOption) -> some View {
+        let isSelected = selectedAmount == option.amount
+        let isAvailable = option.amount <= currentCoins
+
+        Button {
+            selectedAmount = option.amount
+        } label: {
+            VStack(spacing: 6) {
+                Text(option.emoji)
+                    .font(.title2)
+                Text("\(option.amount) 🪙")
+                    .font(.subheadline.weight(.bold))
+                    .foregroundColor(isSelected ? .black : .primary)
+                Text(option.label)
+                    .font(.caption2)
+                    .foregroundColor(isSelected ? .black.opacity(0.7) : .secondary)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 14)
+            .background(
+                RoundedRectangle(cornerRadius: 14)
+                    .fill(isSelected ? Color.yellow.opacity(0.85) : Color(.secondarySystemGroupedBackground))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 14)
+                            .strokeBorder(isSelected ? Color.yellow : Color.clear, lineWidth: 2)
+                    )
+            )
+        }
+        .buttonStyle(.plain)
+        .disabled(!isAvailable)
+        .opacity(isAvailable ? 1.0 : 0.4)
+    }
+
+    @ViewBuilder
+    private var statusSection: some View {
+        if !hasSufficientCoins {
+            Label("Not enough coins — watch an ad to earn more!", systemImage: "exclamationmark.triangle.fill")
+                .font(.caption)
+                .foregroundColor(.orange)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal)
+        }
+
+        if let errorMessage {
+            Text(errorMessage)
+                .font(.caption)
+                .foregroundColor(.red)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal)
+        }
+
+        if didSend {
+            Label("Tip sent! 🎉", systemImage: "checkmark.circle.fill")
+                .font(.subheadline.weight(.semibold))
+                .foregroundColor(.green)
+        }
+    }
+
+    private var actionButtons: some View {
+        VStack(spacing: 12) {
+            Button {
+                sendTip()
+            } label: {
+                sendButtonContent
+            }
+            .disabled(!hasSufficientCoins || isSending || didSend)
+            .opacity(hasSufficientCoins && !isSending && !didSend ? 1.0 : 0.5)
+
+            Button("Cancel") { dismiss() }
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+        }
+        .padding(.horizontal)
+        .padding(.bottom, 20)
+    }
+
+    @ViewBuilder
+    private var sendButtonContent: some View {
+        Group {
+            if isSending {
+                ProgressView()
+                    .tint(.black)
+            } else {
+                Text("Send \(selectedAmount) 🪙")
+                    .font(.headline)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 14)
+        .background(Capsule().fill(BrandGradient.primary))
+        .foregroundColor(.black)
+    }
+
+    // MARK: - Actions
 
     private func sendTip() {
         guard hasSufficientCoins, !isSending, !didSend else { return }
@@ -172,7 +199,6 @@ struct CoinTipSheet: View {
                     isSending = false
                     didSend = true
                 }
-                // Auto-close after showing success.
                 try? await Task.sleep(nanoseconds: 1_500_000_000)
                 await MainActor.run { dismiss() }
             } catch {
