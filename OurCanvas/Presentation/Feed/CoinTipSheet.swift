@@ -159,7 +159,7 @@ struct CoinTipSheet: View {
 
     @ViewBuilder
     private var sendButtonContent: some View {
-        Group {
+        HStack {
             if isSending {
                 ProgressView()
                     .tint(.black)
