@@ -149,4 +149,54 @@ final class CoinManager {
         _ = try? await UserRepository.shared.getUser(uid: userId, ignoreCache: true)
         return finalBalance
     }
+
+    // MARK: - Daily Coin Reward
+
+    /// Awards +1 coin on first app open of each calendar day.
+    /// Atomic Firestore transaction — idempotent: calling twice on the same day returns `false`.
+    ///
+    /// - Parameters:
+    ///   - userId: The authenticated user's UID.
+    ///   - timeZone: The time zone used for date formatting (defaults to device's current zone).
+    ///   - referenceDate: The date to evaluate against (defaults to `Date()` — injectable for tests).
+    /// - Returns: `true` if a coin was awarded, `false` if already claimed today.
+    @discardableResult
+    func claimDailyCoinIfEligible(userId: String,
+                                  timeZone: TimeZone = .current,
+                                  referenceDate: Date = Date()) async throws -> Bool {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        formatter.timeZone = timeZone
+        let todayStr = formatter.string(from: referenceDate)
+
+        let userRef = db.collection("users").document(userId)
+        let awarded = try await db.runTransaction { (transaction, errorPointer) -> Any? in
+            let snapshot: DocumentSnapshot
+            do {
+                snapshot = try transaction.getDocument(userRef)
+            } catch let fetchError as NSError {
+                errorPointer?.pointee = fetchError
+                return false
+            }
+
+            let data = snapshot.data() ?? [:]
+            let lastDate = FieldCast.string(data["lastCoinRewardDate"]) ?? ""
+
+            // Already claimed today — skip.
+            if lastDate == todayStr { return false }
+
+            let currentCoins = FieldCast.int(data["coins"]) ?? 3
+            transaction.updateData([
+                "coins": currentCoins + 1,
+                "lastCoinRewardDate": todayStr,
+            ], forDocument: userRef)
+            return true
+        } as? Bool ?? false
+
+        if awarded {
+            // Refresh local cache so coin balance updates immediately.
+            _ = try? await UserRepository.shared.getUser(uid: userId, ignoreCache: true)
+        }
+        return awarded
+    }
 }

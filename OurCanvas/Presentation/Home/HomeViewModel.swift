@@ -10,6 +10,8 @@ class HomeViewModel: ObservableObject {
     @Published var isLoading = false
     @Published var errorMessage: String?
     @Published private(set) var unreadNotifications = 0
+    /// Set to `true` when the daily +1 coin reward is successfully claimed; drives the toast.
+    @Published var dailyRewardClaimed = false
 
     private var cancellables = Set<AnyCancellable>()
     private let groupRepo = GroupRepository()
@@ -64,10 +66,27 @@ class HomeViewModel: ObservableObject {
                 _ = try await UserRepository.shared.getUser(uid: uid)
                 groupRepo.listenToUserGroups()
                 isLoading = false
+                // Attempt daily coin claim after profile is loaded.
+                await claimDailyReward(uid: uid)
             } catch {
                 errorMessage = error.localizedDescription
                 isLoading = false
             }
+        }
+    }
+
+    /// Attempts to claim the daily +1 coin reward. Shows a toast if awarded.
+    func claimDailyReward(uid: String) async {
+        do {
+            let awarded = try await CoinManager.shared.claimDailyCoinIfEligible(userId: uid)
+            if awarded {
+                dailyRewardClaimed = true
+                // Auto-dismiss the toast after 3 seconds.
+                try? await Task.sleep(nanoseconds: 3_000_000_000)
+                dailyRewardClaimed = false
+            }
+        } catch {
+            // Daily reward failure is silent — not worth surfacing to user.
         }
     }
 

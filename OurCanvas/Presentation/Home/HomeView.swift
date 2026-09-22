@@ -8,7 +8,7 @@ struct HomeView: View {
     @State private var showingCoinWallet = false
 
     var body: some View {
-        ZStack {
+        ZStack(alignment: .top) {
             LinearGradient(
                 gradient: Gradient(colors: [Color.pink.opacity(0.1), Color.blue.opacity(0.1)]),
                 startPoint: .topLeading,
@@ -32,6 +32,39 @@ struct HomeView: View {
             .refreshable {
                 viewModel.refreshGroups()
                 WidgetPayloadStore.shared.refreshSelectedCircleWidget()
+            }
+
+            // MARK: Daily reward toast
+            if viewModel.dailyRewardClaimed {
+                VStack {
+                    HStack(spacing: 10) {
+                        Text("🎉")
+                            .font(.title3)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Daily Reward!")
+                                .font(.caption.weight(.bold))
+                                .foregroundColor(.black)
+                            Text("+1 Coin 🪙 claimed. Welcome back!")
+                                .font(.caption2)
+                                .foregroundColor(.black.opacity(0.7))
+                        }
+                        Spacer()
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
+                    .background(
+                        RoundedRectangle(cornerRadius: 14)
+                            .fill(Color.yellow.opacity(0.95))
+                            .shadow(color: .black.opacity(0.15), radius: 8, x: 0, y: 4)
+                    )
+                    .padding(.horizontal, 16)
+                    .padding(.top, 8)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+
+                    Spacer()
+                }
+                .animation(.spring(response: 0.4, dampingFraction: 0.7), value: viewModel.dailyRewardClaimed)
+                .zIndex(10)
             }
         }
         .navigationTitle("")

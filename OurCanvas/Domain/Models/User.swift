@@ -41,6 +41,7 @@ struct User: Identifiable {
     var streakBrokenDate: String = ""
     var unlockedBrushes: [String] = []
     var unlockedBackgrounds: [String] = []
+    var lastCoinRewardDate: String = ""
 
     // Legacy iOS-only fields tolerated on read; not written anymore.
     var appStoreReceipt: String? = nil
@@ -104,6 +105,7 @@ extension User {
         user.streakBrokenDate = FieldCast.string(data["streakBrokenDate"]) ?? ""
         user.unlockedBrushes = FieldCast.stringArray(data["unlockedBrushes"]) ?? []
         user.unlockedBackgrounds = FieldCast.stringArray(data["unlockedBackgrounds"]) ?? []
+        user.lastCoinRewardDate = FieldCast.string(data["lastCoinRewardDate"]) ?? ""
         user.appStoreReceipt = FieldCast.string(data["appStoreReceipt"])
         user.lastRedeemedPromo = FieldCast.string(data["lastRedeemedPromo"])
         return user
@@ -138,6 +140,7 @@ extension User {
             "streakBrokenDate": "",
             "unlockedBrushes": [String](),
             "unlockedBackgrounds": [String](),
+            "lastCoinRewardDate": "",
         ]
     }
 }
