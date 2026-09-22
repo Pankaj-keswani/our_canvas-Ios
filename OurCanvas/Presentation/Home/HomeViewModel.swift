@@ -12,6 +12,10 @@ class HomeViewModel: ObservableObject {
     @Published private(set) var unreadNotifications = 0
     /// Set to `true` when the daily +1 coin reward is successfully claimed; drives the toast.
     @Published var dailyRewardClaimed = false
+    /// The streak day (1–7) of the last claimed reward. Used to build the toast message.
+    @Published var dailyRewardStreakDay: Int = 1
+    /// `true` when the day-7 jackpot (+5 coins) was awarded.
+    @Published var dailyRewardIsJackpot: Bool = false
 
     private var cancellables = Set<AnyCancellable>()
     private let groupRepo = GroupRepository()
@@ -75,16 +79,17 @@ class HomeViewModel: ObservableObject {
         }
     }
 
-    /// Attempts to claim the daily +1 coin reward. Shows a toast if awarded.
+    /// Attempts to claim the daily coin reward. Shows streak-specific toast if awarded.
     func claimDailyReward(uid: String) async {
         do {
-            let awarded = try await CoinManager.shared.claimDailyCoinIfEligible(userId: uid)
-            if awarded {
-                dailyRewardClaimed = true
-                // Auto-dismiss the toast after 3 seconds.
-                try? await Task.sleep(nanoseconds: 3_000_000_000)
-                dailyRewardClaimed = false
-            }
+            let result = try await CoinManager.shared.claimDailyCoinIfEligible(userId: uid)
+            guard result.coinsAwarded != nil else { return }
+            dailyRewardStreakDay = result.streakDay
+            dailyRewardIsJackpot = result.isJackpot
+            dailyRewardClaimed = true
+            // Auto-dismiss the toast after 4 seconds.
+            try? await Task.sleep(nanoseconds: 4_000_000_000)
+            dailyRewardClaimed = false
         } catch {
             // Daily reward failure is silent — not worth surfacing to user.
         }

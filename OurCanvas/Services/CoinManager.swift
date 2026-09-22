@@ -150,53 +150,150 @@ final class CoinManager {
         return finalBalance
     }
 
-    // MARK: - Daily Coin Reward
+    // MARK: - Daily Coin Reward (streak-aware)
 
-    /// Awards +1 coin on first app open of each calendar day.
-    /// Atomic Firestore transaction — idempotent: calling twice on the same day returns `false`.
+    /// Result of a daily coin claim attempt.
+    struct DailyRewardResult {
+        /// `nil` means already claimed today.
+        var coinsAwarded: Int?
+        /// New streak day (1–7) after this claim. Only valid when `coinsAwarded != nil`.
+        var streakDay: Int
+        /// `true` when this claim completed a 7-day cycle (+5 coins jackpot).
+        var isJackpot: Bool
+    }
+
+    /// Awards +1 coin (or +5 on day 7) on the first app open of each calendar day.
+    /// Implements a 7-day streak with jackpot — atomic Firestore transaction, idempotent on
+    /// same-day calls.
     ///
-    /// - Parameters:
-    ///   - userId: The authenticated user's UID.
-    ///   - timeZone: The time zone used for date formatting (defaults to device's current zone).
-    ///   - referenceDate: The date to evaluate against (defaults to `Date()` — injectable for tests).
-    /// - Returns: `true` if a coin was awarded, `false` if already claimed today.
+    /// Streak rules (mirrors Android):
+    /// - Same day as `lastCoinRewardDate`: already claimed, return `nil` coins.
+    /// - Yesterday == `lastCoinRewardDate`: continue streak (streak + 1).
+    /// - Any earlier date (or empty): reset streak to 1.
+    /// - Day 1–6: award +1 coin.
+    /// - Day 7: award +5 coins (jackpot), then reset streak to 0 so next day starts at 1.
     @discardableResult
     func claimDailyCoinIfEligible(userId: String,
                                   timeZone: TimeZone = .current,
-                                  referenceDate: Date = Date()) async throws -> Bool {
+                                  referenceDate: Date = Date()) async throws -> DailyRewardResult {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd"
         formatter.timeZone = timeZone
         let todayStr = formatter.string(from: referenceDate)
 
+        // Compute yesterday string for streak continuity check.
+        let cal = Calendar(identifier: .gregorian)
+        let yesterdayDate = cal.date(byAdding: .day, value: -1, to: referenceDate) ?? referenceDate
+        let yesterdayStr = formatter.string(from: yesterdayDate)
+
         let userRef = db.collection("users").document(userId)
-        let awarded = try await db.runTransaction { (transaction, errorPointer) -> Any? in
-            let snapshot: DocumentSnapshot
-            do {
-                snapshot = try transaction.getDocument(userRef)
-            } catch let fetchError as NSError {
-                errorPointer?.pointee = fetchError
-                return false
+
+        struct TxResult {
+            var coinsAwarded: Int?
+            var streakDay: Int
+            var isJackpot: Bool
+        }
+
+        let txResult: TxResult = try await withCheckedThrowingContinuation { continuation in
+            db.runTransaction({ (transaction, errorPointer) -> Any? in
+                let snapshot: DocumentSnapshot
+                do {
+                    snapshot = try transaction.getDocument(userRef)
+                } catch let e as NSError {
+                    errorPointer?.pointee = e
+                    return nil
+                }
+
+                let data = snapshot.data() ?? [:]
+                let lastDate = FieldCast.string(data["lastCoinRewardDate"]) ?? ""
+
+                // Already claimed today.
+                if lastDate == todayStr {
+                    return TxResult(coinsAwarded: nil, streakDay: FieldCast.int(data["coinLoginStreak"]) ?? 0, isJackpot: false)
+                }
+
+                let currentStreak = FieldCast.int(data["coinLoginStreak"]) ?? 0
+                let currentCoins  = FieldCast.int(data["coins"]) ?? 3
+
+                // Determine new streak.
+                let newStreak: Int
+                if lastDate == yesterdayStr {
+                    newStreak = currentStreak + 1      // consecutive day
+                } else {
+                    newStreak = 1                      // broken or first-ever
+                }
+
+                let isJackpot = (newStreak >= 7)
+                let coinsAwarded = isJackpot ? 5 : 1
+                let finalStreak  = isJackpot ? 0 : newStreak   // reset after jackpot
+
+                transaction.updateData([
+                    "coins":              currentCoins + coinsAwarded,
+                    "lastCoinRewardDate": todayStr,
+                    "coinLoginStreak":    finalStreak,
+                ], forDocument: userRef)
+
+                return TxResult(coinsAwarded: coinsAwarded, streakDay: newStreak, isJackpot: isJackpot)
+            }) { value, error in
+                if let error = error {
+                    continuation.resume(throwing: error)
+                } else if let r = value as? TxResult {
+                    continuation.resume(returning: r)
+                } else {
+                    // Defensive: treat unknown result as no award.
+                    continuation.resume(returning: TxResult(coinsAwarded: nil, streakDay: 0, isJackpot: false))
+                }
             }
+        }
 
-            let data = snapshot.data() ?? [:]
-            let lastDate = FieldCast.string(data["lastCoinRewardDate"]) ?? ""
-
-            // Already claimed today — skip.
-            if lastDate == todayStr { return false }
-
-            let currentCoins = FieldCast.int(data["coins"]) ?? 3
-            transaction.updateData([
-                "coins": currentCoins + 1,
-                "lastCoinRewardDate": todayStr,
-            ], forDocument: userRef)
-            return true
-        } as? Bool ?? false
-
-        if awarded {
-            // Refresh local cache so coin balance updates immediately.
+        if txResult.coinsAwarded != nil {
             _ = try? await UserRepository.shared.getUser(uid: userId, ignoreCache: true)
         }
-        return awarded
+        return DailyRewardResult(coinsAwarded: txResult.coinsAwarded,
+                                 streakDay: txResult.streakDay,
+                                 isJackpot: txResult.isJackpot)
+    }
+
+    // MARK: - Coin Tipping (Doodle Gifts)
+
+    /// POSTs a `sendCoinTip` action to the Cloudflare Push Relay Worker.
+    /// The worker atomically deducts from sender, credits recipient, fires push + in-app notification.
+    /// Never write the tip directly with the client SDK — Firestore rules block cross-user writes.
+    func sendCoinTip(senderId: String,
+                     recipientId: String,
+                     amount: Int,
+                     drawingId: String,
+                     groupId: String,
+                     groupName: String,
+                     senderName: String) async throws {
+        let workerURL = URL(string: "https://ourcanvas-push-relay.ourcanvas-app.workers.dev")!
+        let apiKey = "zXeJyuEteKt-ubdpqajiFa4M3m3LZsMLi_sG6_NFrDo"
+
+        let payload: [String: Any] = [
+            "action":      "sendCoinTip",
+            "senderId":    senderId,
+            "recipientId": recipientId,
+            "amount":      amount,
+            "drawingId":   drawingId,
+            "groupId":     groupId,
+            "groupName":   groupName,
+            "senderName":  senderName,
+        ]
+
+        var request = URLRequest(url: workerURL)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue(apiKey, forHTTPHeaderField: "X-Api-Key")
+        request.httpBody = try JSONSerialization.data(withJSONObject: payload)
+        request.timeoutInterval = 15
+
+        let (_, response) = try await URLSession.shared.data(for: request)
+        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
+            let code = (response as? HTTPURLResponse)?.statusCode ?? -1
+            throw AppError.underlying("Tip failed (HTTP \(code)). Please try again.")
+        }
+
+        // Refresh sender's coin balance from Firestore after successful tip.
+        _ = try? await UserRepository.shared.getUser(uid: senderId, ignoreCache: true)
     }
 }

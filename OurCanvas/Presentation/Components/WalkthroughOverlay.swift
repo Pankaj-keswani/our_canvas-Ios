@@ -96,6 +96,16 @@ struct WalkthroughOverlay: View {
     private func finish() {
         if var store = makeStore() {
             store.walkthroughStep = WalkthroughOverlay.steps.count
+            store.onboardingCompleted = true
+        }
+        UserDefaults.standard.set(true, forKey: "onboarding_completed")
+        if let uid = Auth.auth().currentUser?.uid {
+            Task {
+                try? await UserRepository.shared.completeOnboarding(
+                    uid: uid,
+                    version: UserScopedStore.currentOnboardingVersion
+                )
+            }
         }
         isPresented = false
     }

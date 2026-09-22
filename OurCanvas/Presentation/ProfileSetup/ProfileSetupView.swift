@@ -1,5 +1,6 @@
 import SwiftUI
 import PhotosUI
+import FirebaseAuth
 
 /// First-login profile initialization: display name + avatar, saved with field-level
 /// Firestore updates. The polished profile screen arrives in a later phase.
@@ -111,6 +112,10 @@ struct ProfileSetupView: View {
         Task {
             do {
                 try await UserRepository.shared.updateFields(uid: uid, fields)
+                if let changeRequest = Auth.auth().currentUser?.createProfileChangeRequest() {
+                    changeRequest.displayName = name
+                    try? await changeRequest.commitChanges()
+                }
                 await MainActor.run {
                     isSaving = false
                     router.refreshSession()

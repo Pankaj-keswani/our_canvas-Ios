@@ -118,7 +118,21 @@ final class AppRouter: ObservableObject {
             return
         }
 
-        state = .loading
+        // Fast-path: Check Auth.auth().currentUser?.displayName first
+        let authDisplayName = Auth.auth().currentUser?.displayName?.trimmed ?? ""
+        let store = UserScopedStore(uid: snapshot.uid, defaults: defaults)
+        let isOnboardingDone = store.onboardingCompleted || defaults.bool(forKey: "onboarding_completed")
+
+        if !authDisplayName.isEmpty {
+            // Immediately conclude profile setup is NOT needed without waiting on Firestore or cache
+            state = isOnboardingDone ? .ready : .needsOnboarding
+            if isOnboardingDone {
+                PushTokenStore.shared.userDidAuthenticate(uid: snapshot.uid)
+            }
+        } else {
+            state = .loading
+        }
+
         Task {
             do {
                 let profile = try await profileProvider.fetchOrCreateProfile(
@@ -128,18 +142,26 @@ final class AppRouter: ObservableObject {
                 )
                 self.evaluate(profile: profile, uid: snapshot.uid)
             } catch {
-                // Keep the splash alive with a retry affordance instead of dropping the
-                // user back to Auth with no explanation.
-                self.bootstrapError = AppError.from(error)
+                if !authDisplayName.isEmpty {
+                    // Fast path already concluded setup is not needed; preserve ready/onboarding state
+                } else {
+                    self.bootstrapError = AppError.from(error)
+                }
             }
         }
     }
 
     private func evaluate(profile: User, uid: String) {
         let store = UserScopedStore(uid: uid, defaults: defaults)
-        if profile.displayName.trimmed.isEmpty {
+        let authName = Auth.auth().currentUser?.displayName?.trimmed ?? ""
+        let hasDisplayName = !profile.displayName.trimmed.isEmpty || !authName.isEmpty
+        let isOnboardingDone = store.onboardingCompleted
+            || defaults.bool(forKey: "onboarding_completed")
+            || profile.onboardingVersion >= Self.currentOnboardingVersion
+
+        if !hasDisplayName {
             state = .needsProfileSetup
-        } else if profile.onboardingVersion < Self.currentOnboardingVersion && !store.onboardingCompleted {
+        } else if !isOnboardingDone {
             state = .needsOnboarding
         } else {
             state = .ready
@@ -156,12 +178,14 @@ final class AppRouter: ObservableObject {
         guard let uid = currentUID else { return }
         var store = UserScopedStore(uid: uid, defaults: defaults)
         store.onboardingVersion = Self.currentOnboardingVersion
+        store.onboardingCompleted = true
+        defaults.set(true, forKey: "onboarding_completed")
         state = .ready
         PushTokenStore.shared.userDidAuthenticate(uid: uid)
         Task {
-            try? await profileProvider.updateFields(
+            try? await profileProvider.completeOnboarding(
                 uid: uid,
-                UserFieldUpdate.onboardingVersion(Self.currentOnboardingVersion)
+                version: Self.currentOnboardingVersion
             )
         }
     }

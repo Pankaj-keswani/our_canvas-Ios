@@ -203,6 +203,9 @@ struct MainTabView: View {
     private func maybeShowWalkthrough() {
         guard let uid = router.currentUID else { return }
         let store = UserScopedStore(uid: uid)
+        if store.onboardingCompleted || UserDefaults.standard.bool(forKey: "onboarding_completed") {
+            return
+        }
         let totalSteps = WalkthroughOverlay.totalSteps
         if store.walkthroughStep < totalSteps {
             showWalkthrough = true

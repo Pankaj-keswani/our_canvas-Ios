@@ -58,6 +58,10 @@ private final class MockProfileProvider: UserProfileProviding {
     func updateFields(uid: String, _ fields: [String: Any]) async throws {
         updateCalls.append(fields)
     }
+
+    func completeOnboarding(uid: String, version: Int) async throws {
+        updateCalls.append(UserFieldUpdate.onboardingVersion(version))
+    }
 }
 
 /// Waits for a MainActor-hopping condition (router transitions run in Tasks).

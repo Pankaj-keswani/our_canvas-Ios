@@ -38,13 +38,17 @@ struct HomeView: View {
             if viewModel.dailyRewardClaimed {
                 VStack {
                     HStack(spacing: 10) {
-                        Text("🎉")
+                        Text(viewModel.dailyRewardIsJackpot ? "🔥" : "🎉")
                             .font(.title3)
                         VStack(alignment: .leading, spacing: 2) {
-                            Text("Daily Reward!")
+                            Text(viewModel.dailyRewardIsJackpot
+                                 ? "7-Day Login Streak Jackpot! 🔥"
+                                 : "Daily Reward!")
                                 .font(.caption.weight(.bold))
                                 .foregroundColor(.black)
-                            Text("+1 Coin 🪙 claimed. Welcome back!")
+                            Text(viewModel.dailyRewardIsJackpot
+                                 ? "+5 Coins 🪙 awarded! Keep the streak going!"
+                                 : "+1 Coin 🪙 claimed (Day \(viewModel.dailyRewardStreakDay) of 7) ✨")
                                 .font(.caption2)
                                 .foregroundColor(.black.opacity(0.7))
                         }
@@ -54,7 +58,9 @@ struct HomeView: View {
                     .padding(.vertical, 12)
                     .background(
                         RoundedRectangle(cornerRadius: 14)
-                            .fill(Color.yellow.opacity(0.95))
+                            .fill(viewModel.dailyRewardIsJackpot
+                                  ? Color.orange.opacity(0.95)
+                                  : Color.yellow.opacity(0.95))
                             .shadow(color: .black.opacity(0.15), radius: 8, x: 0, y: 4)
                     )
                     .padding(.horizontal, 16)

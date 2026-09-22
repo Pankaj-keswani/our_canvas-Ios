@@ -1,4 +1,5 @@
 import Foundation
+import FirebaseFirestore
 
 /// Firestore `users/{uid}` model.
 ///
@@ -11,6 +12,7 @@ struct User: Identifiable {
     var uid: String = ""
     var displayName: String = ""
     var email: String = ""
+    var createdAt: Date? = nil
     var plan: String = "free"
     var hideEmail: Bool = false
     var currentStreak: Int = 0
@@ -42,6 +44,7 @@ struct User: Identifiable {
     var unlockedBrushes: [String] = []
     var unlockedBackgrounds: [String] = []
     var lastCoinRewardDate: String = ""
+    var coinLoginStreak: Int = 0
 
     // Legacy iOS-only fields tolerated on read; not written anymore.
     var appStoreReceipt: String? = nil
@@ -106,6 +109,8 @@ extension User {
         user.unlockedBrushes = FieldCast.stringArray(data["unlockedBrushes"]) ?? []
         user.unlockedBackgrounds = FieldCast.stringArray(data["unlockedBackgrounds"]) ?? []
         user.lastCoinRewardDate = FieldCast.string(data["lastCoinRewardDate"]) ?? ""
+        user.coinLoginStreak = FieldCast.int(data["coinLoginStreak"]) ?? 0
+        user.createdAt = TimestampCast.date(data["createdAt"])
         user.appStoreReceipt = FieldCast.string(data["appStoreReceipt"])
         user.lastRedeemedPromo = FieldCast.string(data["lastRedeemedPromo"])
         return user
@@ -141,6 +146,8 @@ extension User {
             "unlockedBrushes": [String](),
             "unlockedBackgrounds": [String](),
             "lastCoinRewardDate": "",
+            "coinLoginStreak": 0,
+            "createdAt": FieldValue.serverTimestamp(),
         ]
     }
 }

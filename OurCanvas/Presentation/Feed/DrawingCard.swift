@@ -4,6 +4,7 @@ import UIKit
 
 struct DrawingCard: View {
     let drawing: Drawing
+    var group: Group
     var senderName: String?
     var userProfiles: [String: User] = [:]
     var onFavorite: () -> Void
@@ -12,6 +13,7 @@ struct DrawingCard: View {
 
     @State private var showingReactionPalette = false
     @State private var showingReactionsDetail = false
+    @State private var showingCoinTip = false
     @State private var customReaction = ""
     @State private var saveMessage: String?
 
@@ -47,6 +49,11 @@ struct DrawingCard: View {
         .sheet(isPresented: $showingReactionsDetail) {
             ReactionsDetailSheet(drawing: drawing, users: userProfiles)
                 .presentationDetents([.medium, .large])
+        }
+        .sheet(isPresented: $showingCoinTip) {
+            CoinTipSheet(drawing: drawing, group: group,
+                         recipientName: senderName ?? "this artist")
+                .presentationDetents([.medium])
         }
         .alert(item: bindingSaveMessage) { message in
             Alert(title: Text(message.text), dismissButton: .default(Text("OK")))
@@ -86,6 +93,14 @@ struct DrawingCard: View {
                 Button(action: saveToPhotos) {
                     Label(gate.canSaveToDevice ? "Save to Photos" : "Save to Photos (Pro)",
                           systemImage: gate.canSaveToDevice ? "square.and.arrow.down" : "lock")
+                }
+                if drawing.senderId != Auth.auth().currentUser?.uid {
+                    Divider()
+                    Button {
+                        showingCoinTip = true
+                    } label: {
+                        Label("Gift Coins 🎁", systemImage: "gift")
+                    }
                 }
             } label: {
                 Image(systemName: "ellipsis.circle")
@@ -154,6 +169,29 @@ struct DrawingCard: View {
                     }
                     .font(.subheadline)
                     .foregroundColor(.secondary)
+                }
+
+                // Tip pill — only for other users' drawings.
+                if drawing.senderId != Auth.auth().currentUser?.uid {
+                    Button {
+                        showingCoinTip = true
+                    } label: {
+                        HStack(spacing: 4) {
+                            Text("🎁")
+                                .font(.caption)
+                            Text("Tip 🪙")
+                                .font(.caption.weight(.semibold))
+                                .foregroundColor(Color(hexString: "#92400E"))
+                        }
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
+                        .background(
+                            Capsule().fill(Color(hexString: "#FEF3C7"))
+                        )
+                        .overlay(
+                            Capsule().strokeBorder(Color(hexString: "#F59E0B"), lineWidth: 1)
+                        )
+                    }
                 }
 
                 Spacer()

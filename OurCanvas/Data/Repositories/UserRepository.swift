@@ -8,6 +8,7 @@ protocol UserProfileProviding {
                               fallbackDisplayName: String?,
                               fallbackEmail: String?) async throws -> User
     func updateFields(uid: String, _ fields: [String: Any]) async throws
+    func completeOnboarding(uid: String, version: Int) async throws
 }
 
 /// Repository for `users/{uid}`.
@@ -55,12 +56,54 @@ class UserRepository: ObservableObject, UserProfileProviding {
         }
 
         let docRef = db.collection("users").document(uid)
-        let snapshot = try await docRef.getDocument()
+        let snapshot: DocumentSnapshot
+        do {
+            snapshot = try await withThrowingTaskGroup(of: DocumentSnapshot.self) { group in
+                group.addTask {
+                    try await docRef.getDocument()
+                }
+                group.addTask {
+                    try await Task.sleep(nanoseconds: 5_000_000_000)
+                    throw AppError.underlying("Profile fetch timeout")
+                }
+                let res = try await group.next()!
+                group.cancelAll()
+                return res
+            }
+        } catch {
+            if let cached = cachedUser(uid) {
+                publishIfCurrent(cached, uid: uid)
+                return cached
+            }
+            let fallbackName = (Auth.auth().currentUser?.displayName ?? fallbackDisplayName)?.trimmed ?? ""
+            if !fallbackName.isEmpty {
+                var user = User()
+                user.uid = uid
+                user.displayName = fallbackName
+                user.email = fallbackEmail ?? ""
+                publishIfCurrent(user, uid: uid)
+                return user
+            }
+            throw error
+        }
+
         if snapshot.exists, let data = snapshot.data() {
-            let user = mapTestUserPlan(User.from(documentID: snapshot.documentID, data: data))
+            var user = mapTestUserPlan(User.from(documentID: snapshot.documentID, data: data))
+            checkAndBackfillEstablishedAccount(user: &user, data: data, docRef: docRef, uid: uid)
             cache(user, uid: uid)
             publishIfCurrent(user, uid: uid)
             startListeningToUser(uid: uid)
+            return user
+        }
+
+        // Cache miss: do NOT interpret a cache miss as "user has no profile doc".
+        if snapshot.metadata.isFromCache {
+            let fallbackName = (Auth.auth().currentUser?.displayName ?? fallbackDisplayName)?.trimmed ?? ""
+            var user = User()
+            user.uid = uid
+            user.displayName = fallbackName
+            user.email = fallbackEmail ?? ""
+            publishIfCurrent(user, uid: uid)
             return user
         }
 
@@ -83,12 +126,84 @@ class UserRepository: ObservableObject, UserProfileProviding {
             publishIfCurrent(cached, uid: uid)
             return cached
         }
-        let snapshot = try await db.collection("users").document(uid).getDocument()
+        let docRef = db.collection("users").document(uid)
+        let snapshot = try await docRef.getDocument()
         guard snapshot.exists, let data = snapshot.data() else { return nil }
-        let user = mapTestUserPlan(User.from(documentID: snapshot.documentID, data: data))
+        var user = mapTestUserPlan(User.from(documentID: snapshot.documentID, data: data))
+        checkAndBackfillEstablishedAccount(user: &user, data: data, docRef: docRef, uid: uid)
         cache(user, uid: uid)
         publishIfCurrent(user, uid: uid)
         return user
+    }
+
+    /// Fast-path profile check: checks local Auth displayName first, queries Firestore with timeout,
+    /// and treats cache misses or timeouts safely as false so users are never stranded.
+    func needsProfileSetup(uid: String) async -> Bool {
+        if let authName = Auth.auth().currentUser?.displayName?.trimmed, !authName.isEmpty {
+            return false
+        }
+
+        let docRef = db.collection("users").document(uid)
+        do {
+            let snapshot: DocumentSnapshot = try await withThrowingTaskGroup(of: DocumentSnapshot.self) { group in
+                group.addTask {
+                    try await docRef.getDocument()
+                }
+                group.addTask {
+                    try await Task.sleep(nanoseconds: 5_000_000_000)
+                    throw AppError.underlying("Profile check timeout")
+                }
+                let first = try await group.next()!
+                group.cancelAll()
+                return first
+            }
+
+            if !snapshot.exists {
+                if snapshot.metadata.isFromCache {
+                    return false
+                }
+                return true
+            }
+
+            let data = snapshot.data() ?? [:]
+            let name = FieldCast.string(data["displayName"])?.trimmed ?? ""
+            return name.isEmpty
+        } catch {
+            return false
+        }
+    }
+
+    /// Checks if a returning user is an established account missing onboardingVersion.
+    /// If established, sets onboardingVersion: 1, updates local store & UserDefaults, and backfills Firestore with merge.
+    private func checkAndBackfillEstablishedAccount(user: inout User,
+                                                    data: [String: Any],
+                                                    docRef: DocumentReference,
+                                                    uid: String) {
+        let rawVersion = data["onboardingVersion"]
+        let isMissingOrNull = (rawVersion == nil || rawVersion is NSNull)
+        let isVersionZero = user.onboardingVersion == 0
+
+        if isMissingOrNull || isVersionZero {
+            let hasDisplayName = !user.displayName.trimmed.isEmpty
+            let hasDrawings = user.drawingCount > 0
+            let isOldAccount: Bool
+            if let createdAt = user.createdAt {
+                isOldAccount = Date().timeIntervalSince(createdAt) > 120
+            } else {
+                isOldAccount = false
+            }
+
+            if hasDisplayName || hasDrawings || isOldAccount {
+                user.onboardingVersion = 1
+                var store = UserScopedStore(uid: uid)
+                store.onboardingCompleted = true
+                store.walkthroughStep = WalkthroughOverlay.totalSteps
+                UserDefaults.standard.set(true, forKey: "onboarding_completed")
+                Task {
+                    try? await docRef.setData(["onboardingVersion": 1], merge: true)
+                }
+            }
+        }
     }
 
     // MARK: - Field-safe updates
@@ -106,6 +221,12 @@ class UserRepository: ObservableObject, UserProfileProviding {
 
     func updateDisplayName(uid: String, _ name: String) async throws {
         try await updateFields(uid: uid, UserFieldUpdate.displayName(name))
+        if Auth.auth().currentUser?.uid == uid {
+            if let changeRequest = Auth.auth().currentUser?.createProfileChangeRequest() {
+                changeRequest.displayName = name
+                try? await changeRequest.commitChanges()
+            }
+        }
     }
 
     func updateAvatar(uid: String, base64: String) async throws {
@@ -121,7 +242,14 @@ class UserRepository: ObservableObject, UserProfileProviding {
     }
 
     func completeOnboarding(uid: String, version: Int) async throws {
-        try await updateFields(uid: uid, UserFieldUpdate.onboardingVersion(version))
+        try await db.collection("users").document(uid).setData(
+            UserFieldUpdate.onboardingVersion(version),
+            merge: true
+        )
+        memoryCache[uid] = nil
+        if uid == Auth.auth().currentUser?.uid {
+            _ = try? await getUser(uid: uid, ignoreCache: true)
+        }
     }
 
     func updateFCMToken(uid: String, token: String) async throws {

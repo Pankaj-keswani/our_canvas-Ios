@@ -154,7 +154,9 @@ struct OnboardingView: View {
         if let uid = router.currentUID ?? Auth.auth().currentUser?.uid {
             var store = UserScopedStore(uid: uid)
             store.postOnboardingCreate = true
+            store.onboardingCompleted = true
         }
+        UserDefaults.standard.set(true, forKey: "onboarding_completed")
         router.completeOnboarding()
     }
 }

@@ -131,6 +131,7 @@ struct FeedView: View {
                 ForEach(viewModel.visibleDrawings) { drawing in
                     DrawingCard(
                         drawing: drawing,
+                        group: viewModel.group,
                         senderName: viewModel.senderProfile(for: drawing)?.displayName,
                         userProfiles: viewModel.senderProfiles,
                         onFavorite: { viewModel.toggleFavorite(drawing: drawing) },
@@ -152,6 +153,7 @@ struct FeedView: View {
                 ForEach(viewModel.drawings.filter { $0.isFavorite }) { drawing in
                     DrawingCard(
                         drawing: drawing,
+                        group: viewModel.group,
                         senderName: viewModel.senderProfile(for: drawing)?.displayName,
                         userProfiles: viewModel.senderProfiles,
                         onFavorite: { viewModel.toggleFavorite(drawing: drawing) },

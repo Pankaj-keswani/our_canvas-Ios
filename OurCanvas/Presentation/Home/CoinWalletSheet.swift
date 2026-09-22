@@ -45,6 +45,9 @@ struct CoinWalletSheet: View {
 
                         // Info cards
                         VStack(spacing: 12) {
+                            // 7-Day Streak Progress Card
+                            streakProgressCard
+
                             HStack(alignment: .top, spacing: 14) {
                                 Text("✨")
                                     .font(.title2)
@@ -138,5 +141,84 @@ struct CoinWalletSheet: View {
                 }
             }
         }
+    }
+
+    // MARK: - 7-Day Streak Progress Card
+
+    /// The user's current position in the 7-day cycle (1–7).
+    private var currentCycleDay: Int {
+        let streak = userRepo.currentUserProfile?.coinLoginStreak ?? 0
+        return max(1, min(streak == 0 ? 7 : streak, 7))
+    }
+
+    private var streakProgressCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("7-Day Daily Streak 🔥")
+                        .font(.subheadline.weight(.bold))
+                    Text("Day \(currentCycleDay) of 7")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                Spacer()
+                Text("Day 7 = +5 🪙")
+                    .font(.caption2.weight(.semibold))
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(Capsule().fill(Color.orange))
+            }
+
+            HStack(spacing: 6) {
+                ForEach(1...7, id: \.self) { day in
+                    streakDayBlock(day: day)
+                }
+            }
+        }
+        .padding()
+        .background(Color(.secondarySystemGroupedBackground))
+        .cornerRadius(14)
+    }
+
+    @ViewBuilder
+    private func streakDayBlock(day: Int) -> some View {
+        let isCompleted = day < currentCycleDay
+        let isToday     = day == currentCycleDay
+        let isJackpot   = day == 7
+
+        VStack(spacing: 4) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(isCompleted ? Color.green.opacity(0.2)
+                          : isToday    ? Color.yellow.opacity(0.3)
+                          : Color(.tertiarySystemGroupedBackground))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8)
+                            .strokeBorder(
+                                isCompleted ? Color.green.opacity(0.5)
+                                : isToday    ? Color.yellow
+                                : isJackpot  ? Color.orange.opacity(0.6)
+                                : Color.clear,
+                                lineWidth: isToday ? 2 : 1
+                            )
+                    )
+                    .frame(width: 36, height: 36)
+
+                if isCompleted {
+                    Text("✅").font(.caption)
+                } else if isJackpot {
+                    Text("🎁").font(.caption)
+                } else {
+                    Text("+1")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundColor(isToday ? BrandColor.primary : .secondary)
+                }
+            }
+            Text("D\(day)")
+                .font(.system(size: 9, weight: .semibold))
+                .foregroundColor(isToday ? BrandColor.primary : .secondary)
+        }
+        .frame(maxWidth: .infinity)
     }
 }

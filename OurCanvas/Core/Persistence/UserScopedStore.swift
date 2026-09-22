@@ -99,7 +99,18 @@ struct UserScopedStore {
     }
 
     var onboardingCompleted: Bool {
-        onboardingVersion >= Self.currentOnboardingVersion
+        get {
+            onboardingVersion >= Self.currentOnboardingVersion ||
+            defaults.bool(forKey: scopedKey("onboarding_completed")) ||
+            defaults.bool(forKey: "onboarding_completed")
+        }
+        set {
+            defaults.set(newValue, forKey: scopedKey("onboarding_completed"))
+            defaults.set(newValue, forKey: "onboarding_completed")
+            if newValue {
+                onboardingVersion = max(onboardingVersion, Self.currentOnboardingVersion)
+            }
+        }
     }
 
     // MARK: - Walkthrough / discovery
