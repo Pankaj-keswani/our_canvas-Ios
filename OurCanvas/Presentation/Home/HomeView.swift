@@ -8,6 +8,7 @@ struct HomeView: View {
     @State private var showingCoinWallet = false
     @State private var showingPracticeDrawing = false
     @State private var showingGroupsSheet = false
+    @State private var showingHowItWorks = false
 
     var body: some View {
         ZStack(alignment: .top) {
@@ -86,6 +87,11 @@ struct HomeView: View {
         .sheet(isPresented: $showingGroupsSheet) {
             NavigationStack {
                 GroupsView()
+            }
+        }
+        .sheet(isPresented: $showingHowItWorks) {
+            NavigationStack {
+                HowItWorksView()
             }
         }
         .fullScreenCover(isPresented: $showingPracticeDrawing) {
@@ -215,6 +221,9 @@ struct HomeView: View {
                     },
                     onPracticeCanvas: {
                         showingPracticeDrawing = true
+                    },
+                    onHowItWorks: {
+                        showingHowItWorks = true
                     }
                 )
                 .padding(.horizontal)

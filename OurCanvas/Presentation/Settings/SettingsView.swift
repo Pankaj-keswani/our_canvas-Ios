@@ -64,6 +64,20 @@ struct SettingsView: View {
                 }
             }
 
+            Section(header: Text("Help & Guide")) {
+                NavigationLink {
+                    HowItWorksView()
+                } label: {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("How Our Canvas Works")
+                            .font(.body)
+                        Text("Visual guide to widgets, circles, brushes, and games")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                }
+            }
+
             Section(header: Text("Support")) {
                 Button {
                     openMail(to: Self.childSafetyEmail, subject: "Child safety concern")

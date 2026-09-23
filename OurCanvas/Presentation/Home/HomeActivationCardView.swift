@@ -5,6 +5,7 @@ import SwiftUI
 struct HomeActivationCardView: View {
     let onCreateOrJoinCircle: () -> Void
     let onPracticeCanvas: () -> Void
+    let onHowItWorks: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
@@ -79,6 +80,23 @@ struct HomeActivationCardView: View {
                     HStack(spacing: 8) {
                         Text("🎨")
                         Text("Practice Canvas / Try Drawing")
+                            .font(.subheadline.weight(.semibold))
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 13)
+                    .background(Color(.secondarySystemBackground))
+                    .foregroundColor(BrandColor.textPrimary)
+                    .cornerRadius(12)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .strokeBorder(Color.white.opacity(0.12), lineWidth: 1)
+                    )
+                }
+
+                Button(action: onHowItWorks) {
+                    HStack(spacing: 8) {
+                        Text("📖")
+                        Text("How Our Canvas Works (Visual Guide)")
                             .font(.subheadline.weight(.semibold))
                     }
                     .frame(maxWidth: .infinity)

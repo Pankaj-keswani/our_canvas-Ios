@@ -275,95 +275,105 @@ struct OnboardingView: View {
     // MARK: - Slide 2: Creative Freedom & Stroke Replay
 
     private var slide2View: some View {
-        VStack(spacing: 16) {
-            Spacer(minLength: 8)
+        ScrollView(showsIndicators: false) {
+            VStack(spacing: 12) {
+                Spacer(minLength: 4)
 
-            // Preview Canvas Card
-            VStack(spacing: 10) {
-                // Interactive Brush Chips
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 8) {
-                        ForEach(BrushChoice.allCases) { brush in
-                            Button {
-                                selectedBrush = brush
-                                animateSlide2()
-                            } label: {
-                                Text(brush.rawValue)
-                                    .font(.system(size: 11, weight: .bold))
-                                    .padding(.horizontal, 10)
-                                    .padding(.vertical, 6)
-                                    .background(selectedBrush == brush ? BrandColor.primary : Color.white.opacity(0.08))
-                                    .foregroundColor(selectedBrush == brush ? .black : .white)
-                                    .cornerRadius(8)
-                            }
-                            .buttonStyle(.plain)
+                // Preview Canvas Card
+                VStack(spacing: 10) {
+                    // 2x2 Grid of Brush Chips (equal width)
+                    VStack(spacing: 8) {
+                        HStack(spacing: 8) {
+                            brushChip(for: .neon, title: "✨ Neon Glow")
+                            brushChip(for: .fire, title: "🔥 Fire Spark")
+                        }
+                        HStack(spacing: 8) {
+                            brushChip(for: .rainbow, title: "🌈 Rainbow")
+                            brushChip(for: .pastel, title: "🌸 Pastel Soft")
                         }
                     }
-                    .padding(.horizontal, 14)
-                }
+                    .padding(.horizontal, 20)
 
-                // Rendered Canvas Preview
-                ZStack {
-                    RoundedRectangle(cornerRadius: 16)
-                        .fill(Color(hex: 0x11162B))
-                        .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.white.opacity(0.1), lineWidth: 1))
+                    // Rendered Canvas Preview (scaled to ~170pt height)
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 16)
+                            .fill(Color(hex: 0x11162B))
+                            .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.white.opacity(0.1), lineWidth: 1))
 
-                    brushPreviewDoodle(for: selectedBrush, progress: slide2Progress)
+                        brushPreviewDoodle(for: selectedBrush, progress: slide2Progress)
 
-                    // "▶ Replay Stroke" button
-                    VStack {
-                        Spacer()
-                        HStack {
+                        // "▶ Replay Stroke" button
+                        VStack {
                             Spacer()
-                            Button {
-                                animateSlide2()
-                            } label: {
-                                HStack(spacing: 4) {
-                                    Image(systemName: "play.fill")
-                                        .font(.system(size: 10))
-                                    Text("Replay Stroke")
-                                        .font(.system(size: 10, weight: .bold))
+                            HStack {
+                                Spacer()
+                                Button {
+                                    animateSlide2()
+                                } label: {
+                                    HStack(spacing: 4) {
+                                        Image(systemName: "play.fill")
+                                            .font(.system(size: 10))
+                                        Text("Replay Stroke")
+                                            .font(.system(size: 10, weight: .bold))
+                                    }
+                                    .padding(.horizontal, 10)
+                                    .padding(.vertical, 5)
+                                    .background(Capsule().fill(Color.white.opacity(0.18)))
+                                    .foregroundColor(.white)
                                 }
-                                .padding(.horizontal, 10)
-                                .padding(.vertical, 5)
-                                .background(Capsule().fill(Color.white.opacity(0.18)))
-                                .foregroundColor(.white)
+                                .padding(8)
                             }
-                            .padding(10)
                         }
                     }
+                    .frame(width: 270, height: 170)
                 }
-                .frame(width: 270, height: 180)
+
+                Spacer(minLength: 6)
+
+                // Text section
+                VStack(spacing: 6) {
+                    Text("CREATIVE FREEDOM")
+                        .font(.system(size: 11, weight: .heavy, design: .rounded))
+                        .foregroundColor(BrandColor.secondary)
+                        .tracking(1.4)
+
+                    Text("Magical brushes & Stroke Replay.")
+                        .font(.system(size: 24, weight: .bold, design: .rounded))
+                        .foregroundStyle(BrandGradient.primary)
+                        .multilineTextAlignment(.center)
+
+                    Text("Unleash your creativity with Neon, Fire, Rainbow and Pastel brushes. Watch your favorite memories re-draw stroke by stroke.")
+                        .font(.system(size: 13))
+                        .foregroundColor(BrandColor.textSecondary)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 28)
+                }
+
+                Spacer(minLength: 10)
+
+                PrimaryGradientButton(title: "Try Drawing") {
+                    withAnimation { currentPage = 2 }
+                }
+                .padding(.horizontal, 24)
+                .padding(.bottom, 16)
             }
-
-            Spacer(minLength: 8)
-
-            // Text section
-            VStack(spacing: 6) {
-                Text("CREATIVE FREEDOM")
-                    .font(.system(size: 11, weight: .heavy, design: .rounded))
-                    .foregroundColor(BrandColor.secondary)
-                    .tracking(1.4)
-
-                Text("Magical brushes & Stroke Replay.")
-                    .font(.system(size: 24, weight: .bold, design: .rounded))
-                    .foregroundStyle(BrandGradient.primary)
-                    .multilineTextAlignment(.center)
-
-                Text("Unleash your creativity with Neon, Fire, Rainbow and Pastel brushes. Watch your favorite memories re-draw stroke by stroke.")
-                    .font(.system(size: 13))
-                    .foregroundColor(BrandColor.textSecondary)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 28)
-            }
-
-            Spacer(minLength: 12)
-
-            PrimaryGradientButton(title: "Try Drawing") {
-                withAnimation { currentPage = 2 }
-            }
-            .padding(.horizontal, 24)
         }
+    }
+
+    private func brushChip(for brush: BrushChoice, title: String) -> some View {
+        Button {
+            selectedBrush = brush
+            animateSlide2()
+        } label: {
+            Text(title)
+                .font(.system(size: 11, weight: .bold))
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 7)
+                .background(selectedBrush == brush ? BrandColor.primary : Color.white.opacity(0.08))
+                .foregroundColor(selectedBrush == brush ? .black : .white)
+                .cornerRadius(8)
+        }
+        .buttonStyle(.plain)
     }
 
     private func animateSlide2() {
@@ -381,7 +391,7 @@ struct OnboardingView: View {
                 .trim(from: 0, to: progress)
                 .stroke(Color(hex: 0x3BD8D2), style: StrokeStyle(lineWidth: 6, lineCap: .round))
                 .shadow(color: Color(hex: 0x3BD8D2).opacity(0.8), radius: 8)
-                .frame(width: 140, height: 90)
+                .frame(width: 115, height: 75)
 
         case .fire:
             HeartDoodle()
@@ -391,7 +401,7 @@ struct OnboardingView: View {
                     style: StrokeStyle(lineWidth: 6, lineCap: .round)
                 )
                 .shadow(color: Color.orange.opacity(0.8), radius: 8)
-                .frame(width: 110, height: 90)
+                .frame(width: 100, height: 80)
 
         case .rainbow:
             StarDoodle()
@@ -400,14 +410,14 @@ struct OnboardingView: View {
                     LinearGradient(colors: [.red, .yellow, .green, .cyan, .purple], startPoint: .leading, endPoint: .trailing),
                     style: StrokeStyle(lineWidth: 5, lineCap: .round)
                 )
-                .frame(width: 110, height: 110)
+                .frame(width: 105, height: 105)
 
         case .pastel:
             HeartDoodle()
                 .trim(from: 0, to: progress)
                 .stroke(Color(hex: 0xC4B5FD), style: StrokeStyle(lineWidth: 8, lineCap: .round))
                 .shadow(color: Color(hex: 0xF1EBFD).opacity(0.6), radius: 5)
-                .frame(width: 110, height: 90)
+                .frame(width: 100, height: 80)
         }
     }
 
