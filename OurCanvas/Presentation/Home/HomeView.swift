@@ -83,98 +83,18 @@ struct HomeView: View {
         }
     }
 
-    // MARK: - Header (greeting, avatar, bell, settings, Go Pro)
+    // MARK: - Header (compact Option 1 layout)
 
     private var header: some View {
-        HStack(spacing: 12) {
-            NavigationLink {
-                ProfileView()
-            } label: {
-                if let base64 = viewModel.currentUserProfile?.profilePictureBase64, !base64.isEmpty,
-                   let data = Data(base64Encoded: base64), let image = UIImage(data: data) {
-                    Image(uiImage: image)
-                        .resizable()
-                        .scaledToFill()
-                        .frame(width: 44, height: 44)
-                        .clipShape(Circle())
-                } else {
-                    MemberAvatar(uid: Auth.auth().currentUser?.uid ?? "me", size: 44)
-                }
-            }
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text(viewModel.greeting)
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                Text(viewModel.userName)
-                    .font(.title3.weight(.bold))
-            }
-
-            Spacer()
-
-            Button {
-                showingCoinWallet = true
-            } label: {
-                HStack(spacing: 4) {
-                    Text("🪙")
-                        .font(.caption)
-                    Text("\(viewModel.currentUserProfile?.coins ?? 3)")
-                        .font(.caption.weight(.bold))
-                        .foregroundColor(.black)
-                }
-                .padding(.horizontal, 8)
-                .padding(.vertical, 5)
-                .background(Capsule().fill(Color.yellow.opacity(0.3)))
-                .overlay(Capsule().strokeBorder(Color.yellow.opacity(0.6), lineWidth: 1))
-            }
-
-            NavigationLink {
-                NotificationsView()
-            } label: {
-                Image(systemName: "bell.fill")
-                    .foregroundColor(.gray)
-                    .font(.title3)
-                    .padding(8)
-                    .background(Color.white.opacity(0.6))
-                    .clipShape(Circle())
-                    .overlay(alignment: .topTrailing) {
-                        if viewModel.unreadNotifications > 0 {
-                            Text("\(min(viewModel.unreadNotifications, 9))")
-                                .font(.system(size: 9, weight: .bold))
-                                .foregroundColor(.white)
-                                .frame(width: 16, height: 16)
-                                .background(Circle().fill(Color.red))
-                                .offset(x: 5, y: -5)
-                        }
-                    }
-            }
-
-            NavigationLink {
-                SettingsView()
-            } label: {
-                Image(systemName: "gearshape.fill")
-                    .foregroundColor(.gray)
-                    .font(.title3)
-                    .padding(8)
-                    .background(Color.white.opacity(0.6))
-                    .clipShape(Circle())
-            }
-
-            if !viewModel.isPro {
-                NavigationLink {
-                    SubscriptionView()
-                } label: {
-                    Text("Go Pro")
-                        .font(.system(size: 10, weight: .black))
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 5)
-                        .background(Capsule().fill(BrandGradient.primary))
-                        .foregroundColor(.black)
-                }
-            }
-        }
-        .padding(.horizontal)
-        .padding(.top, 16)
+        HomeHeaderView(
+            userProfile: viewModel.currentUserProfile,
+            greeting: viewModel.greeting,
+            userName: viewModel.userName,
+            isPro: viewModel.isPro,
+            coins: viewModel.currentUserProfile?.coins ?? 3,
+            unreadNotifications: viewModel.unreadNotifications,
+            onOpenWallet: { showingCoinWallet = true }
+        )
     }
 
     // MARK: - Streak card
