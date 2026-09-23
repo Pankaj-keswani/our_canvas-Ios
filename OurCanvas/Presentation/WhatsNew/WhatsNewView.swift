@@ -68,6 +68,7 @@ struct FeatureCardView: View {
         case .create: return BrandColor.secondary
         case .together: return Color(hex: 0xF97316)
         case .pro: return BrandColor.warning
+        case .streaks: return Color(hex: 0xFF5722)
         }
     }
 
