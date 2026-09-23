@@ -8,17 +8,18 @@ class GroupRepository: ObservableObject {
 
     @Published var groups: [Group] = []
 
-    func listenToUserGroups() {
+    func listenToUserGroups(completion: (([Group]) -> Void)? = nil) {
         guard let uid = Auth.auth().currentUser?.uid else { return }
 
         listenerRegistration?.remove()
 
         listenerRegistration = db.collection("groups")
             .whereField("memberIds", arrayContains: uid)
-            .addSnapshotListener { [weak self] snapshot, error in
+            .addSnapshotListener(includeMetadataChanges: true) { [weak self] snapshot, error in
                 guard let self = self else { return }
                 if let error = error {
                     print("Error listening to groups: \(error.localizedDescription)")
+                    completion?([])
                     return
                 }
 
@@ -28,8 +29,31 @@ class GroupRepository: ObservableObject {
 
                 DispatchQueue.main.async {
                     self.groups = fetchedGroups
+                    completion?(fetchedGroups)
                 }
             }
+    }
+
+    func fetchUserGroups(source: FirestoreSource = .default) async throws -> [Group] {
+        guard let uid = Auth.auth().currentUser?.uid else { return [] }
+        let snapshot = try await db.collection("groups")
+            .whereField("memberIds", arrayContains: uid)
+            .getDocuments(source: source)
+        var fetchedGroups = snapshot.documents.map { Group.from(documentID: $0.documentID, data: $0.data()) }
+        fetchedGroups.sort { $0.groupName.lowercased() < $1.groupName.lowercased() }
+        DispatchQueue.main.async {
+            self.groups = fetchedGroups
+        }
+        return fetchedGroups
+    }
+
+    func fetchCachedUserGroups() async -> [Group]? {
+        do {
+            let cached = try await fetchUserGroups(source: .cache)
+            return cached.isEmpty ? nil : cached
+        } catch {
+            return nil
+        }
     }
 
     func stopListening() {

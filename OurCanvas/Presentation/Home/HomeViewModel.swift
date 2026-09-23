@@ -3,11 +3,18 @@ import FirebaseAuth
 import FirebaseFirestore
 import Combine
 
+enum HomeLoadingConfig {
+    static let cachePreloadTimeout: TimeInterval = 2.5
+    static let slowLoadingThreshold: TimeInterval = 3.5
+    static let watchdogTimeout: TimeInterval = 5.0
+}
+
 @MainActor
 class HomeViewModel: ObservableObject {
     @Published var currentUserProfile: User?
     @Published var groups: [Group] = []
     @Published var isLoading = false
+    @Published var isSlowLoading = false
     @Published var errorMessage: String?
     @Published private(set) var unreadNotifications = 0
     /// Set to `true` when the daily +1 coin reward is successfully claimed; drives the toast.
@@ -20,6 +27,9 @@ class HomeViewModel: ObservableObject {
     private var cancellables = Set<AnyCancellable>()
     private let groupRepo = GroupRepository()
     private var notificationListener: ListenerRegistration?
+    private var slowLoadingTask: Task<Void, Never>?
+    private var watchdogTask: Task<Void, Never>?
+    private var preloadTask: Task<Void, Never>?
 
     var isPro: Bool { currentUserProfile?.isPro ?? false }
 
@@ -46,7 +56,16 @@ class HomeViewModel: ObservableObject {
     init() {
         groupRepo.$groups
             .receive(on: RunLoop.main)
-            .assign(to: &$groups)
+            .sink { [weak self] newGroups in
+                guard let self = self else { return }
+                self.groups = newGroups
+                if !newGroups.isEmpty {
+                    self.isLoading = false
+                    self.isSlowLoading = false
+                    self.cancelWatchdogs()
+                }
+            }
+            .store(in: &cancellables)
 
         UserRepository.shared.$currentUserProfile
             .receive(on: RunLoop.main)
@@ -57,26 +76,90 @@ class HomeViewModel: ObservableObject {
 
     deinit {
         notificationListener?.remove()
+        cancelWatchdogs()
     }
 
     func loadData() {
         guard let uid = Auth.auth().currentUser?.uid else { return }
         isLoading = true
+        isSlowLoading = false
+        errorMessage = nil
 
         listenToUnreadNotifications(uid: uid)
+        observeGroups(uid: uid)
 
         Task {
             do {
                 _ = try await UserRepository.shared.getUser(uid: uid)
-                groupRepo.listenToUserGroups()
-                isLoading = false
-                // Attempt daily coin claim after profile is loaded.
                 await claimDailyReward(uid: uid)
             } catch {
-                errorMessage = error.localizedDescription
-                isLoading = false
+                // Profile fetch failure is tolerated
             }
         }
+    }
+
+    func observeGroups(uid: String) {
+        cancelWatchdogs()
+
+        // 1. Fast Cache-First Preload (<2.5s bounded read)
+        preloadTask = Task { [weak self] in
+            guard let self = self else { return }
+            if let cached = await self.groupRepo.fetchCachedUserGroups(), !cached.isEmpty {
+                if !Task.isCancelled {
+                    self.groups = cached
+                    self.isLoading = false
+                    self.isSlowLoading = false
+                    self.cancelWatchdogs()
+                }
+            }
+        }
+
+        // 2. Slow Loading Watchdog (3.5s)
+        slowLoadingTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: UInt64(HomeLoadingConfig.slowLoadingThreshold * 1_000_000_000))
+            guard let self = self, !Task.isCancelled else { return }
+            if self.isLoading {
+                self.isSlowLoading = true
+            }
+        }
+
+        // 3. Fallback Watchdog (5.0s)
+        watchdogTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: UInt64(HomeLoadingConfig.watchdogTimeout * 1_000_000_000))
+            guard let self = self, !Task.isCancelled else { return }
+            if self.isLoading {
+                do {
+                    let fallbackGroups = try await self.groupRepo.fetchUserGroups(source: .default)
+                    self.groups = fallbackGroups
+                    self.isLoading = false
+                    self.isSlowLoading = false
+                } catch {
+                    self.isLoading = false
+                    self.isSlowLoading = false
+                    if self.groups.isEmpty {
+                        self.errorMessage = "Connection is slow. Tap to retry."
+                    }
+                }
+            }
+        }
+
+        // 4. Real-time listener with metadata changes included
+        groupRepo.listenToUserGroups { [weak self] fetched in
+            guard let self = self else { return }
+            self.cancelWatchdogs()
+            self.isLoading = false
+            self.isSlowLoading = false
+            self.errorMessage = nil
+        }
+    }
+
+    func cancelWatchdogs() {
+        slowLoadingTask?.cancel()
+        slowLoadingTask = nil
+        watchdogTask?.cancel()
+        watchdogTask = nil
+        preloadTask?.cancel()
+        preloadTask = nil
     }
 
     /// Attempts to claim the daily coin reward. Shows streak-specific toast if awarded.
@@ -110,6 +193,10 @@ class HomeViewModel: ObservableObject {
     }
 
     func refreshGroups() {
-        groupRepo.listenToUserGroups()
+        guard let uid = Auth.auth().currentUser?.uid else { return }
+        isLoading = true
+        isSlowLoading = false
+        errorMessage = nil
+        observeGroups(uid: uid)
     }
 }

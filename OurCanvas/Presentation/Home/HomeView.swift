@@ -212,8 +212,9 @@ struct HomeView: View {
             .padding(.horizontal)
 
             if viewModel.isLoading && viewModel.groups.isEmpty {
-                ProgressView()
-                    .padding(.top, 40)
+                skeletonLoadingView
+            } else if let error = viewModel.errorMessage, viewModel.groups.isEmpty {
+                errorRetryView(error: error)
             } else if viewModel.groups.isEmpty {
                 HomeActivationCardView(
                     onCreateOrJoinCircle: {
@@ -240,6 +241,96 @@ struct HomeView: View {
                 .padding(.horizontal)
             }
         }
+    }
+
+    // MARK: - Skeleton Loading & Error Views
+
+    private var skeletonLoadingView: some View {
+        VStack(spacing: 14) {
+            ForEach(0..<2, id: \.self) { _ in
+                HStack(spacing: 14) {
+                    Circle()
+                        .fill(Color.gray.opacity(0.18))
+                        .frame(width: 48, height: 48)
+                    VStack(alignment: .leading, spacing: 8) {
+                        RoundedRectangle(cornerRadius: 4)
+                            .fill(Color.gray.opacity(0.2))
+                            .frame(width: 140, height: 16)
+                        RoundedRectangle(cornerRadius: 4)
+                            .fill(Color.gray.opacity(0.12))
+                            .frame(width: 200, height: 12)
+                    }
+                    Spacer()
+                }
+                .padding(16)
+                .background(Color.white)
+                .cornerRadius(16)
+                .shadow(color: Color.black.opacity(0.03), radius: 4, x: 0, y: 2)
+            }
+
+            if viewModel.isSlowLoading {
+                Button {
+                    viewModel.refreshGroups()
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "arrow.clockwise")
+                            .font(.system(size: 13, weight: .bold))
+                        Text("Taking longer than usual... Tap to Refresh ↺")
+                            .font(.system(size: 13, weight: .semibold))
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+                    .background(Capsule().fill(Color.orange.opacity(0.15)))
+                    .overlay(Capsule().stroke(Color.orange.opacity(0.4), lineWidth: 1))
+                    .foregroundColor(.orange)
+                    .shadow(color: Color.orange.opacity(0.1), radius: 4, x: 0, y: 2)
+                }
+                .padding(.top, 4)
+                .transition(.opacity.combined(with: .scale(scale: 0.95)))
+            }
+        }
+        .padding(.horizontal)
+        .padding(.top, 10)
+    }
+
+    private func errorRetryView(error: String) -> some View {
+        VStack(spacing: 14) {
+            Image(systemName: "wifi.exclamationmark")
+                .font(.system(size: 32, weight: .semibold))
+                .foregroundColor(.orange)
+
+            Text("Connection Slow or Unavailable")
+                .font(.headline.weight(.bold))
+                .foregroundColor(BrandColor.textPrimary)
+
+            Text(error)
+                .font(.caption)
+                .foregroundColor(BrandColor.textSecondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 16)
+
+            Button {
+                viewModel.refreshGroups()
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "arrow.clockwise")
+                    Text("Tap to Retry ↺")
+                        .font(.subheadline.weight(.bold))
+                }
+                .padding(.horizontal, 20)
+                .padding(.vertical, 10)
+                .background(Capsule().fill(BrandGradient.primary))
+                .foregroundColor(.black)
+                .shadow(color: BrandColor.primary.opacity(0.3), radius: 4, x: 0, y: 2)
+            }
+        }
+        .padding(24)
+        .frame(maxWidth: .infinity)
+        .background(BrandColor.surface)
+        .cornerRadius(16)
+        .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.white.opacity(0.08), lineWidth: 1))
+        .padding(.horizontal)
+        .padding(.top, 10)
     }
 }
 
