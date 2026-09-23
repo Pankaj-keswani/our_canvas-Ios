@@ -38,7 +38,7 @@ final class StrokeSerializationTests: XCTestCase {
                                            canvasSize: CGSize(width: 1080, height: 1080))
         let parsed = StrokeSerializer.decode(json)
 
-        XCTAssertEqual(parsed.strokes.count, 18)
+        XCTAssertEqual(parsed.strokes.count, BrushType.allCases.count)
         XCTAssertEqual(parsed.background.template, .dots)
         XCTAssertEqual(parsed.background.colorHex, "#FDF6E3")
         XCTAssertEqual(parsed.canvasWidth, 1080)
