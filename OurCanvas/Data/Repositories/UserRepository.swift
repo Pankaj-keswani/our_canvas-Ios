@@ -370,6 +370,21 @@ class UserRepository: ObservableObject, UserProfileProviding {
             fields["lastActiveDate"] = today
         }
 
+        let currentStreakValue = (fields["currentStreak"] as? Int) ?? profile?.currentStreak ?? 0
+        let longestStreakValue = (fields["longestStreak"] as? Int) ?? profile?.longestStreak ?? 0
+        if currentStreakValue >= 3 || longestStreakValue >= 3 {
+            var brushes = profile?.unlockedBrushes ?? []
+            if !brushes.contains("PASTEL") {
+                brushes.append("PASTEL")
+                fields["unlockedBrushes"] = brushes
+            }
+            var bgs = profile?.unlockedBackgrounds ?? []
+            if !bgs.contains("LAVENDER_MIST") {
+                bgs.append("LAVENDER_MIST")
+                fields["unlockedBackgrounds"] = bgs
+            }
+        }
+
         try await updateFields(uid: uid, fields)
         StreakWarningManager.shared.onDrawingSent(uid: uid)
     }

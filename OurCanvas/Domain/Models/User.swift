@@ -65,16 +65,28 @@ struct User: Identifiable {
     }
 
     func isBrushUnlocked(_ brush: BrushType) -> Bool {
-        guard brush.isCoinUnlockable else { return true }
         if isPro { return true }
+        if brush.isStreakUnlockable {
+            return longestStreak >= brush.requiredStreak ||
+                   currentStreak >= brush.requiredStreak ||
+                   isItemUnlocked(brush.streakUnlockId) ||
+                   isItemUnlocked(brush.rawValue)
+        }
+        guard brush.isCoinUnlockable else { return true }
         return isItemUnlocked(brush.coinUnlockId) ||
                isItemUnlocked(brush.rawValue) ||
                isItemUnlocked("brush_\(brush.rawValue)")
     }
 
     func isBackgroundUnlocked(_ template: DrawingBackground.Template) -> Bool {
-        guard template.isCoinUnlockable else { return true }
         if isPro { return true }
+        if template.isStreakUnlockable {
+            return longestStreak >= template.requiredStreak ||
+                   currentStreak >= template.requiredStreak ||
+                   isItemUnlocked(template.streakUnlockId) ||
+                   isItemUnlocked(template.rawValue)
+        }
+        guard template.isCoinUnlockable else { return true }
         return isItemUnlocked(template.coinUnlockId) ||
                isItemUnlocked(template.rawValue) ||
                isItemUnlocked("bg_\(template.rawValue)")

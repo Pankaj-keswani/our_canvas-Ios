@@ -118,6 +118,8 @@ enum StrokeSerializer {
             return .midnightGalaxy
         case "vintage_parchment", "parchment":
             return .parchment
+        case "lavender_mist", "lavendermist", "lavender":
+            return .lavenderMist
         default:
             return .plain
         }

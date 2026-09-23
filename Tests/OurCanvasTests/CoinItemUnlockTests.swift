@@ -267,13 +267,13 @@ final class CoinItemUnlockTests: XCTestCase {
     // MARK: - Velvet Ribbon & Fire Engine Parity
 
     func testVelvetRibbonBrushAndroidID() {
-        XCTAssertEqual(BrushType.velvetRibbon.androidID, 16)
-        XCTAssertEqual(BrushType.from(androidID: 16), .velvetRibbon)
+        XCTAssertEqual(BrushType.velvetRibbon.androidID, 17)
+        XCTAssertEqual(BrushType.from(androidID: 17), .velvetRibbon)
     }
 
     func testFireEngineBrushAndroidID() {
-        XCTAssertEqual(BrushType.fireEngine.androidID, 17)
-        XCTAssertEqual(BrushType.from(androidID: 17), .fireEngine)
+        XCTAssertEqual(BrushType.fireEngine.androidID, 18)
+        XCTAssertEqual(BrushType.from(androidID: 18), .fireEngine)
     }
 
     func testVelvetRibbonCoinCostAndUnlockId() {

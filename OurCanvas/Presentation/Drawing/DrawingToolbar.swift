@@ -50,6 +50,11 @@ struct DrawingToolbar: View {
     @State private var showInsufficientCoins = false
     @State private var isUnlocking = false
 
+    // MARK: Streak-unlock alert state
+    @State private var showStreakLockedAlert = false
+    @State private var streakAlertTitle = ""
+    @State private var streakAlertMessage = ""
+
     private let columns = [GridItem(.adaptive(minimum: 64), spacing: 8)]
 
     var body: some View {
@@ -198,6 +203,12 @@ struct DrawingToolbar: View {
                 Text("You need \(cost) 🪙 but only have \(balance). Earn more coins!")
             }
         }
+        // MARK: 3-Day Streak unlock requirement alert
+        .alert(streakAlertTitle, isPresented: $showStreakLockedAlert) {
+            Button("Got it", role: .cancel) { }
+        } message: {
+            Text(streakAlertMessage)
+        }
     }
 
     // MARK: - Panel button
@@ -275,11 +286,18 @@ struct DrawingToolbar: View {
 
     private func brushButton(_ brush: BrushType) -> some View {
         let isPremiumLocked = !gate.canUseBrush(brush)
+        let isStreakLocked = brush.isStreakUnlockable && !(userRepo.currentUserProfile?.isBrushUnlocked(brush) ?? false)
         let isCoinLocked = brush.isCoinUnlockable && !(userRepo.currentUserProfile?.isBrushUnlocked(brush) ?? false)
         let isSelected = engine.selectedBrush == brush
         return Button {
             if isPremiumLocked {
                 onUpgradeTapped()
+            } else if isStreakLocked {
+                let currentStreak = userRepo.currentUserProfile?.currentStreak ?? 0
+                let itemName = (brush == .pastel) ? "Pastel Brush" : brush.displayName
+                streakAlertTitle = "🔥 3-Day Streak Required"
+                streakAlertMessage = "Build a streak of 3 consecutive days by drawing in your circle to unlock the \(itemName) forever! Current streak: \(currentStreak) / 3 days."
+                showStreakLockedAlert = true
             } else if isCoinLocked {
                 pendingCoinUnlockBrush = brush
             } else {
@@ -295,6 +313,22 @@ struct DrawingToolbar: View {
                         Image(systemName: "lock.fill")
                             .font(.system(size: 8))
                             .foregroundStyle(BrandColor.warning)
+                    } else if isStreakLocked {
+                        // Orange/red fire gradient streak badge
+                        Text("🔥 3d")
+                            .font(.system(size: 7, weight: .bold))
+                            .padding(.horizontal, 3)
+                            .padding(.vertical, 1)
+                            .background(
+                                LinearGradient(
+                                    colors: [Color.orange, Color.red],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                            .foregroundColor(.white)
+                            .cornerRadius(4)
+                            .offset(x: 4, y: -4)
                     } else if isCoinLocked {
                         // Golden coin-unlock badge
                         Text("🪙 \(brush.coinCost)")
@@ -318,8 +352,9 @@ struct DrawingToolbar: View {
             .overlay(
                 RoundedRectangle(cornerRadius: 8)
                     .strokeBorder(
-                        isCoinLocked ? Color.yellow.opacity(0.6) :
-                        (isSelected ? BrandColor.primary : .clear),
+                        isStreakLocked ? Color.orange.opacity(0.7) :
+                        (isCoinLocked ? Color.yellow.opacity(0.6) :
+                        (isSelected ? BrandColor.primary : .clear)),
                         lineWidth: 1.5
                     )
             )
@@ -399,10 +434,17 @@ struct DrawingToolbar: View {
     }
 
     private func backgroundTemplateButton(_ template: DrawingBackground.Template) -> some View {
+        let isStreakLocked = template.isStreakUnlockable && !(userRepo.currentUserProfile?.isBackgroundUnlocked(template) ?? false)
         let isCoinLocked = template.isCoinUnlockable && !(userRepo.currentUserProfile?.isBackgroundUnlocked(template) ?? false)
         let isSelected = engine.background.template == template
         return Button {
-            if isCoinLocked {
+            if isStreakLocked {
+                let currentStreak = userRepo.currentUserProfile?.currentStreak ?? 0
+                let itemName = (template == .lavenderMist) ? "Lavender Mist Background" : template.displayName
+                streakAlertTitle = "🔥 3-Day Streak Required"
+                streakAlertMessage = "Build a streak of 3 consecutive days by drawing in your circle to unlock the \(itemName) forever! Current streak: \(currentStreak) / 3 days."
+                showStreakLockedAlert = true
+            } else if isCoinLocked {
                 pendingCoinUnlockBackground = template
             } else {
                 engine.updateBackground(DrawingBackground(template: template,
@@ -412,7 +454,21 @@ struct DrawingToolbar: View {
             HStack(spacing: 4) {
                 Text(template.displayName)
                     .font(.caption)
-                if isCoinLocked {
+                if isStreakLocked {
+                    Text("🔥 3d")
+                        .font(.system(size: 8, weight: .bold))
+                        .padding(.horizontal, 4)
+                        .padding(.vertical, 1.5)
+                        .background(
+                            LinearGradient(
+                                colors: [Color.orange, Color.red],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .foregroundColor(.white)
+                        .cornerRadius(4)
+                } else if isCoinLocked {
                     Text("🪙 \(template.coinCost)")
                         .font(.system(size: 9, weight: .bold))
                         .foregroundColor(.orange)
@@ -425,7 +481,11 @@ struct DrawingToolbar: View {
             .cornerRadius(8)
             .overlay(
                 RoundedRectangle(cornerRadius: 8)
-                    .strokeBorder(isCoinLocked ? Color.yellow.opacity(0.6) : .clear, lineWidth: 1.2)
+                    .strokeBorder(
+                        isStreakLocked ? Color.orange.opacity(0.7) :
+                        (isCoinLocked ? Color.yellow.opacity(0.6) : .clear),
+                        lineWidth: 1.2
+                    )
             )
         }
         .buttonStyle(.plain)

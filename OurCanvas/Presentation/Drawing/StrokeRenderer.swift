@@ -213,6 +213,10 @@ enum StrokeRenderer {
 
         case .fireEngine:
             drawFireEngine(stroke, in: ctx)
+
+        case .pastel:
+            // 3-Day Streak Unlock: Soft chalk/pastel look with dual passes (outer diffusion halo with slight blur/feathering and a solid matte core).
+            drawPastel(stroke, in: ctx, comps: comps)
         }
     }
 
@@ -631,6 +635,25 @@ enum StrokeRenderer {
         ctx.restoreGState()
     }
 
+    private static func drawPastel(_ stroke: Stroke,
+                                   in ctx: CGContext,
+                                   comps: (r: CGFloat, g: CGFloat, b: CGFloat, a: CGFloat)) {
+        guard stroke.points.count >= 2 else { return }
+
+        // Pass 1: Outer diffusion halo (chalk dust / feathering effect)
+        ctx.saveGState()
+        setStroke(comps, alpha: min(CGFloat(1.0), comps.a * 0.30), ctx: ctx, cap: .round)
+        ctx.setShadow(offset: .zero, blur: max(2.0, stroke.width * 0.35), color: UIColor(red: comps.r, green: comps.g, blue: comps.b, alpha: min(CGFloat(1.0), comps.a * 0.40)).cgColor)
+        strokePath(stroke, in: ctx, widthFactor: 1.45)
+        ctx.restoreGState()
+
+        // Pass 2: Solid matte core
+        ctx.saveGState()
+        setStroke(comps, alpha: min(CGFloat(1.0), comps.a * 0.95), ctx: ctx, cap: .round)
+        strokePath(stroke, in: ctx, widthFactor: 0.90)
+        ctx.restoreGState()
+    }
+
     // MARK: - Background
 
     static func drawBackground(_ background: DrawingBackground, in ctx: CGContext, canvasRect: CGRect) {
@@ -800,6 +823,28 @@ enum StrokeRenderer {
             ctx.setStrokeColor(red: 0.55, green: 0.40, blue: 0.25, alpha: 0.15)
             ctx.setLineWidth(canvasRect.width * 0.04)
             ctx.stroke(canvasRect)
+            ctx.restoreGState()
+
+        case .lavenderMist:
+            // 3-Day Streak Unlock: Twilight lavender-to-blush linear gradient from top-left (#F1EBFD) to bottom-right (#FCEEF8) with subtle rounded inner vignette/mist accents
+            let startColor = UIColor(red: 0xF1 / 255.0, green: 0xEB / 255.0, blue: 0xFD / 255.0, alpha: 1.0).cgColor
+            let endColor = UIColor(red: 0xFC / 255.0, green: 0xEE / 255.0, blue: 0xF8 / 255.0, alpha: 1.0).cgColor
+            if let gradient = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(),
+                                         colors: [startColor, endColor] as CFArray,
+                                         locations: [0.0, 1.0]) {
+                ctx.drawLinearGradient(gradient,
+                                       start: CGPoint(x: 0, y: 0),
+                                       end: CGPoint(x: canvasRect.width, y: canvasRect.height),
+                                       options: [])
+            }
+
+            // Subtle rounded inner mist/vignette accents
+            ctx.saveGState()
+            let mistColor = UIColor(red: 0xDF / 255.0, green: 0xD0 / 255.0, blue: 0xF8 / 255.0, alpha: 0.18).cgColor
+            ctx.setFillColor(mistColor)
+            let mistRadius = canvasRect.width * 0.45
+            ctx.fillEllipse(in: CGRect(x: canvasRect.width * 0.1, y: -mistRadius * 0.4, width: mistRadius * 2, height: mistRadius * 1.5))
+            ctx.fillEllipse(in: CGRect(x: canvasRect.width * 0.4, y: canvasRect.height - mistRadius * 0.8, width: mistRadius * 1.8, height: mistRadius * 1.4))
             ctx.restoreGState()
         }
     }

@@ -24,6 +24,7 @@ enum BrushType: String, CaseIterable, Hashable {
     case eraser
     case fire
     case aurora
+    case pastel
     case velvetRibbon
     case fireEngine
 
@@ -45,8 +46,9 @@ enum BrushType: String, CaseIterable, Hashable {
         case .eraser: return 13
         case .fire: return 14
         case .aurora: return 15
-        case .velvetRibbon: return 16
-        case .fireEngine: return 17
+        case .pastel: return 16
+        case .velvetRibbon: return 17
+        case .fireEngine: return 18
         }
     }
 
@@ -68,8 +70,9 @@ enum BrushType: String, CaseIterable, Hashable {
         case 13: return .eraser
         case 14: return .fire
         case 15: return .aurora
-        case 16: return .velvetRibbon
-        case 17: return .fireEngine
+        case 16: return .pastel
+        case 17: return .velvetRibbon
+        case 18: return .fireEngine
         default: return .basic
         }
     }
@@ -92,6 +95,7 @@ enum BrushType: String, CaseIterable, Hashable {
         case .eraser: return "Eraser"
         case .fire: return "Fire 🔥"
         case .aurora: return "Aurora 🌌"
+        case .pastel: return "Pastel 🖍️"
         case .velvetRibbon: return "Velvet Ribbon 🎀"
         case .fireEngine: return "Fire Engine 🚒"
         }
@@ -115,6 +119,7 @@ enum BrushType: String, CaseIterable, Hashable {
         case .eraser: return "eraser"
         case .fire: return "flame.fill"
         case .aurora: return "sparkles"
+        case .pastel: return "pencil.tip.crop.circle"
         case .velvetRibbon: return "bookmark.fill"
         case .fireEngine: return "car.fill"
         }
@@ -140,6 +145,24 @@ enum BrushType: String, CaseIterable, Hashable {
         case .aurora: return "AURORA"
         case .velvetRibbon: return "brush_velvet_ribbon"
         case .fireEngine: return "brush_fire_engine"
+        default: return ""
+        }
+    }
+
+    var isStreakUnlockable: Bool {
+        self == .pastel
+    }
+
+    var requiredStreak: Int {
+        switch self {
+        case .pastel: return 3
+        default: return 0
+        }
+    }
+
+    var streakUnlockId: String {
+        switch self {
+        case .pastel: return "PASTEL"
         default: return ""
         }
     }
@@ -248,6 +271,7 @@ struct DrawingBackground: Equatable {
         case auroraBorealis = "aurora_borealis"
         case midnightGalaxy = "midnight_galaxy"
         case parchment = "vintage_parchment"
+        case lavenderMist = "lavender_mist"
 
         var displayName: String {
             switch self {
@@ -259,6 +283,7 @@ struct DrawingBackground: Equatable {
             case .auroraBorealis: return "Aurora 🌌"
             case .midnightGalaxy: return "Midnight Galaxy 🌌"
             case .parchment: return "Vintage Parchment 📜"
+            case .lavenderMist: return "Lavender Mist 🪻"
             }
         }
 
@@ -282,6 +307,24 @@ struct DrawingBackground: Equatable {
             case .auroraBorealis: return "AURORA_BOREALIS"
             case .midnightGalaxy: return "bg_midnight_galaxy"
             case .parchment: return "bg_parchment"
+            default: return ""
+            }
+        }
+
+        var isStreakUnlockable: Bool {
+            self == .lavenderMist
+        }
+
+        var requiredStreak: Int {
+            switch self {
+            case .lavenderMist: return 3
+            default: return 0
+            }
+        }
+
+        var streakUnlockId: String {
+            switch self {
+            case .lavenderMist: return "LAVENDER_MIST"
             default: return ""
             }
         }

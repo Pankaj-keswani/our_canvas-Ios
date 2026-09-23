@@ -5,19 +5,19 @@ import UIKit
 // MARK: - A. Cross-platform stroke serialization
 
 final class StrokeSerializationTests: XCTestCase {
-    func testAllEighteenBrushIDsMatchAndroidOrder() {
+    func testAllNineteenBrushIDsMatchAndroidOrder() {
         let expected: [(BrushType, Int)] = [
             (.basic, 0), (.pencil, 1), (.marker, 2), (.neon, 3),
             (.rainbow, 4), (.glow, 5), (.calligraphy, 6), (.watercolor, 7),
             (.crayon, 8), (.airbrush, 9), (.pixel, 10), (.glitter, 11),
             (.sketch, 12), (.eraser, 13), (.fire, 14), (.aurora, 15),
-            (.velvetRibbon, 16), (.fireEngine, 17),
+            (.pastel, 16), (.velvetRibbon, 17), (.fireEngine, 18),
         ]
         for (brush, id) in expected {
             XCTAssertEqual(brush.androidID, id, "\(brush.displayName) must serialize as Android id \(id)")
             XCTAssertEqual(BrushType.from(androidID: id), brush)
         }
-        XCTAssertEqual(BrushType.allCases.count, 18)
+        XCTAssertEqual(BrushType.allCases.count, 19)
     }
 
     func testUnknownAndroidIDFallsBackToBasic() {
