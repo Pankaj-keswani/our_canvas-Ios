@@ -26,6 +26,7 @@ final class NotificationPreferenceTests: XCTestCase {
         XCTAssertEqual(NotificationPreferences.category(for: .newGameTurn), .games)
         XCTAssertEqual(NotificationPreferences.category(for: .guessResult), .games)
         XCTAssertEqual(NotificationPreferences.category(for: .memberJoined), .other)
+        XCTAssertEqual(NotificationPreferences.category(for: .coinTip), .other)
     }
 
     func testEachToggleMutesOnlyItsCategory() {
@@ -37,6 +38,7 @@ final class NotificationPreferenceTests: XCTestCase {
         XCTAssertTrue(preferences.isEnabled(for: .newGameTurn))
         XCTAssertTrue(preferences.isEnabled(for: .guessResult))
         XCTAssertTrue(preferences.isEnabled(for: .memberJoined))
+        XCTAssertTrue(preferences.isEnabled(for: .coinTip))
 
         preferences = NotificationPreferences()
         preferences.newReactionEnabled = false
@@ -52,6 +54,7 @@ final class NotificationPreferenceTests: XCTestCase {
         preferences = NotificationPreferences()
         preferences.otherEnabled = false
         XCTAssertFalse(preferences.isEnabled(for: .memberJoined), "circle-join notices are muted")
+        XCTAssertFalse(preferences.isEnabled(for: .coinTip), "doodle tips are muted")
         XCTAssertTrue(preferences.isEnabled(for: .guessResult))
     }
 
@@ -59,9 +62,20 @@ final class NotificationPreferenceTests: XCTestCase {
         var preferences = NotificationPreferences()
         preferences.otherEnabled = false
         XCTAssertFalse(preferences.isEnabled(for: .memberJoined))
+        XCTAssertFalse(preferences.isEnabled(for: .coinTip))
         preferences.otherEnabled = true
         XCTAssertTrue(preferences.isEnabled(for: .memberJoined),
                       "re-enabling the toggle restores delivery immediately")
+        XCTAssertTrue(preferences.isEnabled(for: .coinTip))
+    }
+
+    func testNotifyOtherUserDefaultsGate() {
+        let preferences = NotificationPreferences()
+        UserDefaults.standard.set(false, forKey: "notify_other")
+        XCTAssertFalse(preferences.isEnabled(for: .coinTip))
+        XCTAssertFalse(preferences.isEnabled(for: .memberJoined))
+        UserDefaults.standard.removeObject(forKey: "notify_other")
+        XCTAssertTrue(preferences.isEnabled(for: .coinTip))
     }
 
     /// Migration: preferences stored by the previous app version (two keys) must
@@ -104,6 +118,6 @@ final class NotificationPreferenceTests: XCTestCase {
     }
 
     private var allPushTypes: [PushPayload.PushType] {
-        [.newDrawing, .newReaction, .newGameTurn, .guessResult, .memberJoined]
+        [.newDrawing, .newReaction, .newGameTurn, .guessResult, .memberJoined, .coinTip]
     }
 }

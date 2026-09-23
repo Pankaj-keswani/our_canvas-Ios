@@ -117,7 +117,7 @@ class NotificationManager: NSObject, ObservableObject, UNUserNotificationCenterD
             case .newDrawing:
                 WidgetPayloadStore.shared.refreshSelectedCircleWidget(targetDrawingId: payload.drawingId)
                 self.reloadWidgets()
-            case .newReaction, .newGameTurn, .guessResult, .memberJoined:
+            case .newReaction, .newGameTurn, .guessResult, .memberJoined, .coinTip:
                 self.reloadWidgets()
             }
         }

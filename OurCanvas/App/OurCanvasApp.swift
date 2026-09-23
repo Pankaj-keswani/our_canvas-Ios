@@ -32,6 +32,10 @@ class AppDelegate: NSObject, UIApplicationDelegate {
                      didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
         Messaging.messaging().apnsToken = deviceToken
     }
+
+    func applicationDidBecomeActive(_ application: UIApplication) {
+        StreakWarningManager.shared.scheduleOrVerifyStreakWarning()
+    }
 }
 
 @main

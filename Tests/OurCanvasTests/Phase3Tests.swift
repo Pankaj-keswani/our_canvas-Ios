@@ -6,12 +6,12 @@ import Foundation
 
 final class WhatsNewTests: XCTestCase {
     func testCurrentVersionMatchesAndroid() {
-        XCTAssertEqual(WhatsNewContent.CURRENT_VERSION, 5)
+        XCTAssertEqual(WhatsNewContent.CURRENT_VERSION, 8)
     }
 
     func testCardListMatchesAndroidOrder() {
         let titles = WhatsNewContent.cards.map { $0.title }
-        XCTAssertEqual(titles.prefix(4), ["Streak Recovery", "Coins & Letter Hints",
+        XCTAssertEqual(titles.prefix(5), ["Streak Expiration Alerts", "Streak Recovery", "Coins & Letter Hints",
                                           "Avatar & Name Reactions", "Ultra-Fast Doodle Sync"])
         XCTAssertEqual(titles.suffix(2), ["Offline sends", "Lifetime Pro"])
         // Tag chips limited to the Android vocabulary.

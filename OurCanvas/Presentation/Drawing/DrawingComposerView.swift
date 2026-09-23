@@ -223,6 +223,7 @@ struct DrawingComposerView: View {
 
                 // Analytics/streak updates are best-effort — a failure must not fail the send.
                 try? await UserRepository.shared.recordDrawingSent(uid: currentUser.uid, strokes: sentStrokes)
+                StreakWarningManager.shared.onDrawingSent(uid: currentUser.uid)
 
                 await MainActor.run {
                     isSending = false

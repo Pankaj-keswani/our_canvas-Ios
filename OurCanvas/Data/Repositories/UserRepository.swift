@@ -371,6 +371,7 @@ class UserRepository: ObservableObject, UserProfileProviding {
         }
 
         try await updateFields(uid: uid, fields)
+        StreakWarningManager.shared.onDrawingSent(uid: uid)
     }
 
     static let dayFormatter: DateFormatter = {

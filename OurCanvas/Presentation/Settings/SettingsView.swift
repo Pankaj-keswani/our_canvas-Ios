@@ -24,7 +24,14 @@ struct SettingsView: View {
                 Toggle("New doodles", isOn: $viewModel.newDrawingEnabled)
                 Toggle("Reactions received", isOn: $viewModel.newReactionEnabled)
                 Toggle("Guess My Doodle", isOn: $viewModel.gameEventsEnabled)
-                Toggle("Other notifications", isOn: $viewModel.otherEnabled)
+                Toggle(isOn: $viewModel.otherEnabled) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Other notifications")
+                        Text("Doodle tips, streak warnings, and circle updates")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                }
                 Button {
                     viewModel.fixDelayedNotifications()
                 } label: {
@@ -185,7 +192,11 @@ final class SettingsViewModel: ObservableObject {
         newDrawingEnabled = preferences.newDrawingEnabled
         newReactionEnabled = preferences.newReactionEnabled
         gameEventsEnabled = preferences.gameEventsEnabled
-        otherEnabled = preferences.otherEnabled
+        if let notifyOther = UserDefaults.standard.object(forKey: "notify_other") as? Bool {
+            otherEnabled = notifyOther
+        } else {
+            otherEnabled = preferences.otherEnabled
+        }
         appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
 
         UserRepository.shared.$currentUserProfile
@@ -198,6 +209,7 @@ final class SettingsViewModel: ObservableObject {
 
     func savePreferences() {
         var store = UserScopedStore(uid: Auth.auth().currentUser?.uid ?? "anonymous")
+        UserDefaults.standard.set(otherEnabled, forKey: "notify_other")
         preferences.newDrawingEnabled = newDrawingEnabled
         preferences.newReactionEnabled = newReactionEnabled
         preferences.gameEventsEnabled = gameEventsEnabled

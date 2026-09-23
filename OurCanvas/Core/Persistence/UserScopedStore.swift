@@ -58,7 +58,7 @@ struct NotificationPreferences: Codable, Equatable {
         case .newDrawing: return .drawings
         case .newReaction: return .reactions
         case .newGameTurn, .guessResult: return .games
-        case .memberJoined: return .other
+        case .memberJoined, .coinTip: return .other
         }
     }
 
@@ -68,7 +68,11 @@ struct NotificationPreferences: Codable, Equatable {
         case .drawings: return newDrawingEnabled
         case .reactions: return newReactionEnabled
         case .games: return gameEventsEnabled
-        case .other: return otherEnabled
+        case .other:
+            if (UserDefaults.standard.object(forKey: "notify_other") as? Bool) == false {
+                return false
+            }
+            return otherEnabled
         }
     }
 }
@@ -140,11 +144,20 @@ struct UserScopedStore {
     var notificationPreferences: NotificationPreferences {
         get {
             guard let data = defaults.data(forKey: scopedKey("notificationPreferences")) else {
-                return NotificationPreferences()
+                var prefs = NotificationPreferences()
+                if let notifyOther = defaults.object(forKey: "notify_other") as? Bool {
+                    prefs.otherEnabled = notifyOther
+                }
+                return prefs
             }
-            return (try? JSONDecoder().decode(NotificationPreferences.self, from: data)) ?? NotificationPreferences()
+            var prefs = (try? JSONDecoder().decode(NotificationPreferences.self, from: data)) ?? NotificationPreferences()
+            if let notifyOther = defaults.object(forKey: "notify_other") as? Bool {
+                prefs.otherEnabled = notifyOther
+            }
+            return prefs
         }
         set {
+            defaults.set(newValue.otherEnabled, forKey: "notify_other")
             if let data = try? JSONEncoder().encode(newValue) {
                 defaults.set(data, forKey: scopedKey("notificationPreferences"))
             }

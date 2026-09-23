@@ -9,6 +9,7 @@ struct InAppNotification: Equatable, Identifiable {
         case newReaction = "NEW_REACTION"
         case guessResult = "GUESS_RESULT"
         case memberJoined = "MEMBER_JOINED"
+        case coinTip = "COIN_TIP"
 
         static func from(_ raw: String?) -> NotificationType? {
             guard let raw else { return nil }
@@ -21,6 +22,7 @@ struct InAppNotification: Equatable, Identifiable {
             case .newReaction: return "❤️"
             case .guessResult: return "🎮"
             case .memberJoined: return "👋"
+            case .coinTip: return "🎁"
             }
         }
     }
@@ -91,6 +93,8 @@ struct InAppNotification: Equatable, Identifiable {
             return "guess:\(gameId.isEmpty ? targetIdFallback : gameId)"
         case .memberJoined:
             return "member_joined:\(senderId.isEmpty ? targetIdFallback : senderId)"
+        case .coinTip:
+            return "tip:\(drawingId):\(senderId.isEmpty ? targetIdFallback : senderId)"
         }
     }
 
@@ -107,6 +111,7 @@ struct PushPayload: Equatable {
         case newGameTurn = "new_game_turn"
         case guessResult = "guess_result"
         case memberJoined = "member_joined"
+        case coinTip = "coin_tip"
     }
 
     enum GuessPerspective: String {
@@ -116,11 +121,15 @@ struct PushPayload: Equatable {
 
     var type: PushType
     var senderName: String = "Someone"
+    var senderId: String = ""
     var reactorName: String = ""
     var groupId: String = ""
     var groupName: String = "your circle"
     var drawingId: String = ""
     var emoji: String = ""
+    var amount: String = ""
+    var title: String = ""
+    var body: String = ""
     // guess_result extras
     var result: String = ""
     var word: String = ""
@@ -143,11 +152,15 @@ struct PushPayload: Equatable {
 
         var payload = PushPayload(type: type)
         payload.senderName = nonEmpty(string("senderName")) ?? "Someone"
+        payload.senderId = string("senderId") ?? ""
         payload.reactorName = nonEmpty(string("reactorName")) ?? payload.senderName
         payload.groupId = string("groupId") ?? string("gId") ?? ""
         payload.groupName = nonEmpty(string("groupName")) ?? "your circle"
         payload.drawingId = string("drawingId") ?? ""
         payload.emoji = string("emoji") ?? ""
+        payload.amount = string("amount") ?? ""
+        payload.title = string("title") ?? ""
+        payload.body = string("body") ?? ""
         payload.result = string("result") ?? ""
         payload.word = string("word") ?? ""
         payload.winnerName = string("winnerName") ?? ""
@@ -208,6 +221,13 @@ struct PushPayload: Equatable {
                 : eventId
             notification.title = "👋 \(senderName) joined \(groupName)"
             notification.body = "\(senderName) has joined your circle \(groupName)"
+        case .coinTip:
+            notification.type = .coinTip
+            notification.senderId = senderId
+            notification.notificationId = InAppNotification.makeId(type: .coinTip, drawingId: drawingId, senderId: senderId.isEmpty ? senderName : senderId)
+            let displayAmount = amount == "1" ? "1 Coin" : "\(amount) Coins"
+            notification.title = title.isEmpty ? "🎁 Gift from \(senderName)" : title
+            notification.body = body.isEmpty ? "\(senderName) tipped you \(displayAmount) 🪙 for your doodle!" : body
         }
         return notification
     }
@@ -258,6 +278,11 @@ struct PushPayload: Equatable {
                 params["groupId"] = groupId
                 params["route"] = "drawing_feed"
             }
+        case .coinTip:
+            params["route"] = "drawing_feed"
+            params["groupId"] = groupId
+            if !groupName.isEmpty && groupName != "your circle" { params["groupName"] = groupName }
+            if !drawingId.isEmpty { params["drawingId"] = drawingId }
         default:
             params["route"] = "drawing_feed"
             params["groupId"] = groupId
