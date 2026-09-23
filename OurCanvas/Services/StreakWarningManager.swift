@@ -105,7 +105,10 @@ final class StreakWarningManager {
             return
         }
 
-        let profile = UserRepository.shared.cachedUser(uid) ?? (try? await UserRepository.shared.getUser(uid: uid))
+        var profile = UserRepository.shared.cachedUser(uid)
+        if profile == nil {
+            profile = try? await UserRepository.shared.getUser(uid: uid)
+        }
         guard let profile else { return }
 
         let todayStr = Self.dayFormatter().string(from: Date())
@@ -128,7 +131,7 @@ final class StreakWarningManager {
                 content: content,
                 trigger: trigger
             )
-            try? await notificationCenter.add(request)
+            notificationCenter.add(request) { _ in }
         } else {
             cancelStreakWarning()
         }
