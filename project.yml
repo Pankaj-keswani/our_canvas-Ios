@@ -28,6 +28,7 @@ targets:
         NSCameraUsageDescription: "Needed for taking profile pictures."
         NSPhotoLibraryUsageDescription: "Needed for selecting profile pictures."
         NSPhotoLibraryAddUsageDescription: "Needed for saving your doodles to your photo library."
+        GADApplicationIdentifier: "ca-app-pub-7815261539621331~6740991488"
         # Cloudflare Worker (guess judging). Real values are provided per-environment and
         # must NOT be committed — placeholders stay empty in source control.
         GuessWorkerBaseURL: ""

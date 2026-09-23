@@ -40,6 +40,13 @@ enum BrandGradient {
         startPoint: .topLeading,
         endPoint: .bottomTrailing
     )
+
+    /// Cyan→blue fill for the tab bar's center Create disc (Android parity spec).
+    static let create = LinearGradient(
+        colors: [BrandColor.primary, Color(hex: 0x2E7CF6)],
+        startPoint: .topLeading,
+        endPoint: .bottomTrailing
+    )
 }
 
 // MARK: - Typography (rounded accents; custom handwritten fonts land in the UI polish phase)

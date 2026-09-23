@@ -3,17 +3,19 @@ import SwiftUI
 import FirebaseAuth
 import Combine
 
-/// Rewarded Video Ad Manager for coin economy (AdMob Unit `ca-app-pub-3940256099942544/1712485313`).
+/// Rewarded Video Ad Manager for coin economy (Production AdMob Unit `ca-app-pub-7815261539621331/7008584794`).
 /// Handles ad presentation and atomic coin reward distribution (+1 coin per ad watched).
 @MainActor
 final class RewardedAdManager: ObservableObject {
     static let shared = RewardedAdManager()
-    static let adUnitId = "ca-app-pub-3940256099942544/1712485313"
+    static let REWARDED_AD_UNIT_ID = "ca-app-pub-7815261539621331/7008584794"
+    static var adUnitId: String { REWARDED_AD_UNIT_ID }
 
     @Published var isPresentingAd = false
     @Published var adCountdown: Int = 5
     @Published var isLoadingAd = false
     @Published var rewardEarnedMessage: String?
+    @Published var adErrorMessage: String?
 
     private var timer: Timer?
 
@@ -21,11 +23,13 @@ final class RewardedAdManager: ObservableObject {
         guard !isPresentingAd else { return }
         isPresentingAd = true
         adCountdown = 5
+        rewardEarnedMessage = nil
+        adErrorMessage = nil
 
         timer?.invalidate()
         timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] t in
             Task { @MainActor [weak self] in
-                guard let self else { return }
+                guard let self = self else { return }
                 if self.adCountdown > 1 {
                     self.adCountdown -= 1
                 } else {
@@ -39,13 +43,18 @@ final class RewardedAdManager: ObservableObject {
     }
 
     private func awardCoin(onReward: (() -> Void)?) async {
-        guard let uid = Auth.auth().currentUser?.uid else { return }
+        guard let uid = Auth.auth().currentUser?.uid else {
+            adErrorMessage = "Ad unavailable, try again"
+            return
+        }
         do {
             try await CoinManager.shared.earnCoins(uid: uid, amount: 1)
             rewardEarnedMessage = "+1 🪙 Added to your balance!"
+            adErrorMessage = nil
             onReward?()
         } catch {
             print("Failed to award coin: \(error.localizedDescription)")
+            adErrorMessage = "Ad unavailable, try again"
         }
     }
 }

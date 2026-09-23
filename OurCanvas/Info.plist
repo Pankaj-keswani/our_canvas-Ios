@@ -2,5 +2,7 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>GADApplicationIdentifier</key>
+	<string>ca-app-pub-7815261539621331~6740991488</string>
 </dict>
 </plist>

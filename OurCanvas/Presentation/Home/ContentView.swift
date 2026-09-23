@@ -86,11 +86,13 @@ struct BootstrapErrorView: View {
 }
 
 /// Phase 3 shell: the five final destinations (Home, Circles, center Create, What's New
-/// with red dot, Profile), What's New versioned badge, persisted deep-link consumption,
-/// post-onboarding create action and the first-run walkthrough.
+/// with red dot, Profile) rendered under the Android-parity premium pill tab bar,
+/// What's New versioned badge, persisted deep-link consumption, post-onboarding
+/// create action and the first-run walkthrough.
 struct MainTabView: View {
     @EnvironmentObject private var router: AppRouter
     @State private var selectedTab = 0
+    @State private var visitedTabs: Set<Int> = [0]
     @State private var showCreate = false
     @StateObject private var whatsNew = WhatsNewViewModel()
     @ObservedObject private var offlineQueue = OfflineQueueService.shared
@@ -104,69 +106,70 @@ struct MainTabView: View {
         return "Sending \(offlineQueue.pendingCount) queued doodle\(offlineQueue.pendingCount == 1 ? "" : "s")…"
     }
 
+    /// Five slots for the premium bar: Home, Circles, center Create, What's New (red
+    /// dot via `showUnreadDot`), Profile. Ids match `selectedTab`.
+    private var premiumTabs: [PremiumTab] {
+        [
+            PremiumTab(id: 0, label: "Home", icon: "house", activeIcon: "house.fill"),
+            PremiumTab(id: 1, label: "Circles", icon: "person.2", activeIcon: "person.2.fill"),
+            PremiumTab(id: 2, label: "What's New", icon: "sparkles",
+                       showUnreadDot: whatsNew.hasUnseen),
+            PremiumTab(id: 3, label: "Profile", icon: "person.crop.circle", activeIcon: "person.crop.circle.fill"),
+        ]
+    }
+
     var body: some View {
         ZStack(alignment: .bottom) {
-            TabView(selection: $selectedTab) {
+            // The system TabView is intentionally NOT used: its bottom bar cannot be
+            // reliably hidden across pushed destinations on iOS 16, so the four stacks
+            // live in a ZStack instead — the selected one visible, previously visited
+            // ones kept mounted (state preservation) but hidden, unvisited ones lazy.
+            ZStack {
                 NavigationStack {
                     HomeView()
                 }
-                .tabItem {
-                    Label("Home", systemImage: "house.fill")
-                }
-                .tag(0)
+                .tabVisibility(selectedTab == 0)
 
-                NavigationStack {
-                    GroupsView()
+                if visitedTabs.contains(1) {
+                    NavigationStack {
+                        GroupsView()
+                    }
+                    .tabVisibility(selectedTab == 1)
                 }
-                .tabItem {
-                    Label("Circles", systemImage: "person.2.fill")
-                }
-                .tag(1)
 
-                NavigationStack {
-                    WhatsNewView(viewModel: whatsNew)
+                if visitedTabs.contains(2) {
+                    NavigationStack {
+                        WhatsNewView(viewModel: whatsNew)
+                    }
+                    .tabVisibility(selectedTab == 2)
                 }
-                .tabItem {
-                    Label("What's New", systemImage: "sparkles")
-                }
-                .tag(2)
 
-                NavigationStack {
-                    ProfileView()
+                if visitedTabs.contains(3) {
+                    NavigationStack {
+                        ProfileView()
+                    }
+                    .tabVisibility(selectedTab == 3)
                 }
-                .tabItem {
-                    Label("Profile", systemImage: "person.crop.circle.fill")
-                }
-                .tag(3)
             }
             .tint(BrandColor.primary)
-
-            // Center Create (+) action, anchored above the tab bar.
-            HStack {
-                Spacer()
-                Button(action: { showCreate = true }) {
-                    Image(systemName: "plus")
-                        .font(.system(size: 22, weight: .bold))
-                        .foregroundColor(.black)
-                        .frame(width: 56, height: 56)
-                        .background(Circle().fill(BrandGradient.primary))
-                        .shadow(color: BrandColor.primary.opacity(0.4), radius: 8, x: 0, y: 4)
-                }
-                .accessibilityLabel("Create")
-                .padding(.trailing, 24)
-                .padding(.bottom, 68)
-            }
-
-            // What's New red dot over the 3rd tab (tab bar slots: 0..3, dot sits at 62.5%).
-            GeometryReader { geometry in
-                if whatsNew.hasUnseen {
-                    Circle()
-                        .fill(Color.red)
-                        .frame(width: 10, height: 10)
-                        .position(x: geometry.size.width * 0.625, y: geometry.size.height - 52)
-                        .allowsHitTesting(false)
+            .onChange(of: selectedTab) { tab in
+                visitedTabs.insert(tab)
+                // System TabView semantics: keyboard dismisses on tab switch.
+                UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder),
+                                                to: nil, from: nil, for: nil)
+                // What's New marks its version seen when the tab is viewed (its onAppear
+                // used to re-fire on every re-entry under the system TabView).
+                if tab == 2, whatsNew.hasUnseen {
+                    whatsNew.markCurrentSeen()
                 }
             }
+            // Android-parity floating pill bar replaces the system tab bar; content
+            // reserves bottom space via safeAreaInset so nothing hides behind it.
+            .premiumTabBarChrome(
+                tabs: premiumTabs,
+                selection: $selectedTab,
+                onCreate: { showCreate = true }
+            )
 
             // Offline / pending-sends banner (Android OfflineBanner parity).
             if offlineQueue.isOffline || offlineQueue.pendingCount > 0 {
@@ -194,9 +197,6 @@ struct MainTabView: View {
             OfflineQueueService.shared.refreshPendingCount()
             OfflineQueueService.shared.flushForCurrentUser(reason: "mainAppear")
         }
-        .onChange(of: selectedTab) { _ in
-            UIImpactFeedbackGenerator(style: .light).impactOccurred()
-        }
         .sheet(isPresented: $showCreate) {
             CreateLauncherView()
         }
@@ -210,6 +210,18 @@ struct MainTabView: View {
         if store.consumePostOnboardingCreate() {
             showCreate = true
         }
+    }
+}
+
+// MARK: - ZStack tab visibility
+
+/// Non-selected tabs stay mounted for state preservation but are invisible,
+/// non-interactive and hidden from accessibility (system TabView selection parity).
+private extension View {
+    func tabVisibility(_ isVisible: Bool) -> some View {
+        opacity(isVisible ? 1 : 0)
+            .allowsHitTesting(isVisible)
+            .accessibilityHidden(!isVisible)
     }
 }
 

@@ -117,12 +117,19 @@ struct CoinWalletSheet: View {
                                     .transition(.scale.combined(with: .opacity))
                             }
 
+                            if let errMsg = adManager.adErrorMessage {
+                                Text(errMsg)
+                                    .font(.subheadline.weight(.semibold))
+                                    .foregroundColor(.red)
+                                    .transition(.scale.combined(with: .opacity))
+                            }
+
                             Button {
                                 adManager.watchAd()
                             } label: {
                                 HStack(spacing: 8) {
                                     Image(systemName: "play.rectangle.fill")
-                                    Text("Watch Ad (+1 🪙) 🎬")
+                                    Text("Watch a Video Ad (+1 🪙) 🎬")
                                         .font(.headline)
                                 }
                                 .frame(maxWidth: .infinity)
