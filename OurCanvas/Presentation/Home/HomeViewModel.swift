@@ -76,7 +76,6 @@ class HomeViewModel: ObservableObject {
 
     deinit {
         notificationListener?.remove()
-        cancelWatchdogs()
     }
 
     func loadData() {
@@ -145,11 +144,13 @@ class HomeViewModel: ObservableObject {
 
         // 4. Real-time listener with metadata changes included
         groupRepo.listenToUserGroups { [weak self] fetched in
-            guard let self = self else { return }
-            self.cancelWatchdogs()
-            self.isLoading = false
-            self.isSlowLoading = false
-            self.errorMessage = nil
+            Task { @MainActor [weak self] in
+                guard let self = self else { return }
+                self.cancelWatchdogs()
+                self.isLoading = false
+                self.isSlowLoading = false
+                self.errorMessage = nil
+            }
         }
     }
 
