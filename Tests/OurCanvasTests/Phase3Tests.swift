@@ -24,9 +24,9 @@ final class WhatsNewTests: XCTestCase {
     }
 
     func testDotHiddenAtCurrentVersion() {
-        XCTAssertFalse(WhatsNewState.shouldShowDot(local: 5, remote: nil))
-        XCTAssertFalse(WhatsNewState.shouldShowDot(local: 5, remote: 4))
-        XCTAssertFalse(WhatsNewState.shouldShowDot(local: 4, remote: 5))
+        XCTAssertFalse(WhatsNewState.shouldShowDot(local: WhatsNewContent.CURRENT_VERSION, remote: nil))
+        XCTAssertFalse(WhatsNewState.shouldShowDot(local: WhatsNewContent.CURRENT_VERSION, remote: WhatsNewContent.CURRENT_VERSION - 1))
+        XCTAssertFalse(WhatsNewState.shouldShowDot(local: WhatsNewContent.CURRENT_VERSION - 1, remote: WhatsNewContent.CURRENT_VERSION))
     }
 
     func testVersionBumpReArmsDot() {
