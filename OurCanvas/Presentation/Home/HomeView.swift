@@ -6,6 +6,8 @@ struct HomeView: View {
     @StateObject private var viewModel = HomeViewModel()
     @State private var showingWidgetConfig = false
     @State private var showingCoinWallet = false
+    @State private var showingPracticeDrawing = false
+    @State private var showingGroupsSheet = false
 
     var body: some View {
         ZStack(alignment: .top) {
@@ -80,6 +82,16 @@ struct HomeView: View {
         }
         .sheet(isPresented: $showingCoinWallet) {
             CoinWalletSheet()
+        }
+        .sheet(isPresented: $showingGroupsSheet) {
+            NavigationStack {
+                GroupsView()
+            }
+        }
+        .fullScreenCover(isPresented: $showingPracticeDrawing) {
+            NavigationStack {
+                DrawingComposerView(group: .practice)
+            }
         }
     }
 
@@ -197,21 +209,16 @@ struct HomeView: View {
                 ProgressView()
                     .padding(.top, 40)
             } else if viewModel.groups.isEmpty {
-                VStack(spacing: 12) {
-                    Image(systemName: "person.3.sequence.fill")
-                        .font(.system(size: 40))
-                        .foregroundColor(.gray.opacity(0.5))
-                    Text("You haven't joined any circles yet.")
-                        .foregroundColor(.secondary)
-                    NavigationLink {
-                        GroupsView()
-                    } label: {
-                        Text("New Circle")
-                            .font(.caption.weight(.semibold))
-                            .foregroundColor(BrandColor.primary)
+                HomeActivationCardView(
+                    onCreateOrJoinCircle: {
+                        showingGroupsSheet = true
+                    },
+                    onPracticeCanvas: {
+                        showingPracticeDrawing = true
                     }
-                }
-                .padding(.top, 40)
+                )
+                .padding(.horizontal)
+                .padding(.top, 10)
             } else {
                 LazyVStack(spacing: 16) {
                     ForEach(viewModel.groups) { group in

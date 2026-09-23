@@ -23,6 +23,10 @@ struct DrawingComposerView: View {
         _coDraw = StateObject(wrappedValue: CoDrawViewModel(group: group))
     }
 
+    private var isPracticeMode: Bool {
+        group.groupId == "practice" || group.groupId.isEmpty
+    }
+
     private var gate: PremiumGate {
         PremiumGate(isPro: UserRepository.shared.currentUserProfile?.isPro ?? false)
     }
@@ -31,12 +35,14 @@ struct DrawingComposerView: View {
         case error(String)
         case freeLimit
         case upgradeStub
+        case practiceSaved
 
         var id: String {
             switch self {
             case .error: return "error"
             case .freeLimit: return "freeLimit"
             case .upgradeStub: return "upgradeStub"
+            case .practiceSaved: return "practiceSaved"
             }
         }
     }
@@ -45,9 +51,28 @@ struct DrawingComposerView: View {
         VStack(spacing: 0) {
             // Co-Draw entry point (chip with live participant count + BETA badge).
             HStack {
-                CoDrawChip(viewModel: coDraw)
+                if isPracticeMode {
+                    Button {
+                        activeAlert = .error("Co-Draw is available inside Circles with friends!")
+                    } label: {
+                        HStack(spacing: 5) {
+                            Image(systemName: "pencil.and.outline")
+                                .font(.system(size: 13, weight: .bold))
+                                .foregroundColor(BrandColor.secondary)
+                            Text("Practice Mode")
+                                .font(.caption2.weight(.bold))
+                                .foregroundColor(BrandColor.textPrimary)
+                        }
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 4)
+                        .background(Capsule().fill(BrandColor.surface.opacity(0.8)))
+                    }
+                    .buttonStyle(.plain)
+                } else {
+                    CoDrawChip(viewModel: coDraw)
+                }
                 Spacer()
-                if coDraw.isActive {
+                if !isPracticeMode && coDraw.isActive {
                     Label("Live", systemImage: "dot.radiowaves.left.and.right")
                         .font(.caption2.weight(.bold))
                         .foregroundColor(BrandColor.secondary)
@@ -78,16 +103,20 @@ struct DrawingComposerView: View {
                            onOpenCoinWallet: { showingCoinWallet = true },
                            onSaveToDevice: { saveToDevice() },
                            onShare: { share() },
-                           onUndo: { coDraw.localUndo() },
-                           onClear: { coDraw.localClear() })
+                           onUndo: { isPracticeMode ? engine.undo() : coDraw.localUndo() },
+                           onClear: { isPracticeMode ? engine.clearAll() : coDraw.localClear() })
         }
         .onAppear {
-            coDraw.connect(engine: engine)
+            if !isPracticeMode {
+                coDraw.connect(engine: engine)
+            }
         }
         .onDisappear {
-            coDraw.leave()
+            if !isPracticeMode {
+                coDraw.leave()
+            }
         }
-        .navigationTitle("Drawing for \(group.groupName)")
+        .navigationTitle(isPracticeMode ? "Practice Sketchbook 🎨" : "Drawing for \(group.groupName)")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
@@ -97,17 +126,27 @@ struct DrawingComposerView: View {
                 if isSending {
                     ProgressView()
                 } else {
-                    Button("Send") { sendDrawing() }
-                        .fontWeight(.bold)
+                    Button(isPracticeMode ? "Save" : "Send") {
+                        if isPracticeMode {
+                            savePracticeDrawing()
+                        } else {
+                            sendDrawing()
+                        }
+                    }
+                    .fontWeight(.bold)
                 }
             }
         }
         .alert(item: $activeAlert) { alert in
             switch alert {
             case .error(let message):
-                return Alert(title: Text("Couldn't send your drawing"),
+                return Alert(title: Text(isPracticeMode ? "Practice Sketch" : "Couldn't send your drawing"),
                              message: Text(message),
                              dismissButton: .default(Text("OK")))
+            case .practiceSaved:
+                return Alert(title: Text("Saved to Photos! 🎨"),
+                             message: Text("🎨 Practice sketch saved to your Photos! Create a Circle to share doodles with friends."),
+                             dismissButton: .default(Text("OK")) { dismiss() })
             case .freeLimit:
                 return Alert(title: Text("Free plan limit reached"),
                              message: Text("You've sent \(DrawingLimits.freeDrawingsPerCircle) drawings in this circle on the free plan. Upgrade to Pro to keep the doodles flowing."),
@@ -234,6 +273,23 @@ struct DrawingComposerView: View {
                     isSending = false
                     activeAlert = .error(AppError.from(error).message)
                 }
+            }
+        }
+    }
+
+    // MARK: - Practice Mode Save
+
+    private func savePracticeDrawing() {
+        guard !engine.strokes.isEmpty || !engine.stickers.isEmpty || !engine.texts.isEmpty else {
+            activeAlert = .error("Draw something first — the canvas is empty!")
+            return
+        }
+        let image = engine.exportCompositePNG()
+        PhotoLibrarySaver.save(image: image) { message in
+            if message.contains("Saved") {
+                activeAlert = .practiceSaved
+            } else {
+                activeAlert = .error(message)
             }
         }
     }

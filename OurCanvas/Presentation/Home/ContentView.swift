@@ -4,6 +4,7 @@ import UIKit
 
 struct ContentView: View {
     @StateObject private var router: AppRouter
+    @AppStorage("isOnboardingCompleted") private var isOnboardingCompleted: Bool = false
     @Environment(\.scenePhase) private var scenePhase
 
     init() {
@@ -44,7 +45,11 @@ struct ContentView: View {
                 ProgressView()
                     .tint(BrandColor.primary)
             case .signedOut:
-                AuthView()
+                if !isOnboardingCompleted {
+                    OnboardingView()
+                } else {
+                    AuthView()
+                }
             case .needsVerification:
                 VerificationView()
             case .needsProfileSetup:
@@ -87,7 +92,6 @@ struct MainTabView: View {
     @EnvironmentObject private var router: AppRouter
     @State private var selectedTab = 0
     @State private var showCreate = false
-    @State private var showWalkthrough = false
     @StateObject private var whatsNew = WhatsNewViewModel()
     @ObservedObject private var offlineQueue = OfflineQueueService.shared
 
@@ -186,7 +190,6 @@ struct MainTabView: View {
         .onAppear {
             NotificationManager.shared.requestAuthorizationIfNeeded()
             router.consumePersistedDeepLink()
-            maybeShowWalkthrough()
             maybeOpenPostOnboardingCreate()
             OfflineQueueService.shared.refreshPendingCount()
             OfflineQueueService.shared.flushForCurrentUser(reason: "mainAppear")
@@ -196,21 +199,6 @@ struct MainTabView: View {
         }
         .sheet(isPresented: $showCreate) {
             CreateLauncherView()
-        }
-        .fullScreenCover(isPresented: $showWalkthrough) {
-            WalkthroughOverlay(isPresented: $showWalkthrough)
-        }
-    }
-
-    private func maybeShowWalkthrough() {
-        guard let uid = router.currentUID else { return }
-        let store = UserScopedStore(uid: uid)
-        if store.onboardingCompleted || UserDefaults.standard.bool(forKey: "onboarding_completed") {
-            return
-        }
-        let totalSteps = WalkthroughOverlay.totalSteps
-        if store.walkthroughStep < totalSteps {
-            showWalkthrough = true
         }
     }
 

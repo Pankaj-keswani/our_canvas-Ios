@@ -1,13 +1,14 @@
 import SwiftUI
 import FirebaseAuth
 
-/// Android-compatible onboarding redesign (A11): exactly 4 pages, each with a
-/// self-drawing animated doodle (trim-reveal + glow/aura), drifting emoji
-/// background, eyebrow label, gradient-accent headline, page counter chip,
-/// Skip, animated progress dots and per-page gradient CTAs.
+/// Interactive 3-slide onboarding experience matching Android commit 0654258.
+/// Introduces live lockscreen & widget sync, creative freedom with brush preview and stroke replay,
+/// and an embedded live touch drawing pad.
 struct OnboardingView: View {
     @EnvironmentObject private var router: AppRouter
+    @AppStorage("isOnboardingCompleted") private var isOnboardingCompleted: Bool = false
 
+    // MARK: - Legacy Page struct & array preserved for Phase 3 unit test parity
     struct Page: Identifiable {
         let eyebrow: String
         let headline: String
@@ -22,181 +23,616 @@ struct OnboardingView: View {
     }
 
     static let pages: [Page] = [
-        Page(eyebrow: "Welcome to Our Canvas",
-             headline: "Draw a little love",
-             cta: "Show me more",
-             doodle: .heart,
-             backgroundEmojis: ["❤️", "💕", "💖", "✨"]),
-        Page(eyebrow: "Every doodle counts",
-             headline: "Sketch your way to streaks",
-             cta: "That's cute",
-             doodle: .star,
-             backgroundEmojis: ["⭐️", "🌟", "✨", "💫"]),
-        Page(eyebrow: "Together is better",
-             headline: "Play, guess & co-draw",
-             cta: "I'm in",
-             doodle: .rainbow,
-             backgroundEmojis: ["🌈", "🎨", "🖌️", "☁️"]),
-        Page(eyebrow: "Ready when you are",
-             headline: "Your canvas awaits",
-             cta: "Start drawing",
-             doodle: .smiley,
-             backgroundEmojis: ["😊", "🎨", "🎉", "✏️"]),
+        Page(eyebrow: "Welcome to Our Canvas", headline: "Draw a little love", cta: "Show me more", doodle: .heart, backgroundEmojis: ["❤️", "💕", "💖", "✨"]),
+        Page(eyebrow: "Every doodle counts", headline: "Sketch your way to streaks", cta: "That's cute", doodle: .star, backgroundEmojis: ["⭐️", "🌟", "✨", "💫"]),
+        Page(eyebrow: "Together is better", headline: "Play, guess & co-draw", cta: "I'm in", doodle: .rainbow, backgroundEmojis: ["🌈", "🎨", "🖌️", "☁️"]),
+        Page(eyebrow: "Ready when you are", headline: "Your canvas awaits", cta: "Start drawing", doodle: .smiley, backgroundEmojis: ["😊", "🎨", "🎉", "✏️"]),
     ]
 
+    // MARK: - Interactive State
     @State private var currentPage = 0
-    @State private var revealProgress: CGFloat = 0
-    @State private var driftPhase: CGFloat = 0
+
+    // Slide 1 State
+    @State private var slide1Progress: CGFloat = 0
+    @State private var showNotificationBanner = false
+
+    // Slide 2 State
+    enum BrushChoice: String, CaseIterable, Identifiable {
+        case neon = "Neon Glow"
+        case fire = "Fire Spark"
+        case rainbow = "Rainbow"
+        case pastel = "Pastel Soft"
+        var id: String { rawValue }
+    }
+    @State private var selectedBrush: BrushChoice = .neon
+    @State private var slide2Progress: CGFloat = 1.0
+
+    // Slide 3 State
+    struct DrawStroke: Identifiable {
+        let id = UUID()
+        var points: [CGPoint]
+        let color: Color
+    }
+    @State private var strokes: [DrawStroke] = []
+    @State private var activeStroke: DrawStroke? = nil
+    @State private var selectedColorIndex = 0
+    private let miniPadColors: [Color] = [
+        Color(hex: 0x3BD8D2), // Neon Cyan
+        Color(hex: 0xF43F5E), // Rose Pink
+        Color(hex: 0xFBBF24), // Amber Sun
+        Color(hex: 0xA855F7), // Purple
+        Color.white           // White
+    ]
 
     var body: some View {
         ZStack {
-            DriftingEmojiBackground(emojis: OnboardingView.pages[currentPage].backgroundEmojis,
-                                    phase: driftPhase)
+            // Deep obsidian / navy gradient background (#0D111E to #13192B)
+            LinearGradient(
+                colors: [Color(hex: 0x0D111E), Color(hex: 0x13192B)],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .ignoresSafeArea()
+
+            // Subtle floating particles
+            FloatingParticlesView()
 
             VStack(spacing: 0) {
-                Spacer()
+                topBar
+                    .padding(.horizontal, 20)
+                    .padding(.top, 12)
 
-                SelfDrawingDoodle(kind: OnboardingView.pages[currentPage].doodle,
-                                  progress: revealProgress)
-                    .frame(height: 240)
+                // 3 Slides TabView
+                TabView(selection: $currentPage) {
+                    slide1View
+                        .tag(0)
 
-                Spacer()
+                    slide2View
+                        .tag(1)
 
-                VStack(spacing: 10) {
-                    Text(OnboardingView.pages[currentPage].eyebrow)
-                        .font(BrandFont.caption())
-                        .textCase(.uppercase)
-                        .foregroundColor(BrandColor.primary)
-                        .tracking(1.5)
-
-                    Text(OnboardingView.pages[currentPage].headline)
-                        .font(BrandFont.title())
-                        .foregroundStyle(BrandGradient.primary)
-                        .multilineTextAlignment(.center)
+                    slide3View
+                        .tag(2)
                 }
-                .padding(.horizontal, 24)
+                .tabViewStyle(.page(indexDisplayMode: .never))
 
-                Spacer().frame(height: 28)
+                bottomBar
+                    .padding(.horizontal, 24)
+                    .padding(.bottom, 20)
+            }
+        }
+        .onAppear {
+            animateSlide1()
+        }
+        .onChange(of: currentPage) { newPage in
+            if newPage == 0 {
+                animateSlide1()
+            } else if newPage == 1 {
+                animateSlide2()
+            }
+        }
+    }
 
-                HStack(spacing: 8) {
-                    ForEach(0..<OnboardingView.pages.count, id: \.self) { index in
-                        Capsule()
-                            .fill(index == currentPage ? BrandColor.primary : Color.white.opacity(0.25))
-                            .frame(width: index == currentPage ? 26 : 8, height: 8)
-                            .animation(.spring(response: 0.35, dampingFraction: 0.8), value: currentPage)
+    // MARK: - Top Bar
+
+    private var topBar: some View {
+        HStack {
+            // "Step X of 3" chip
+            Text("Step \(currentPage + 1) of 3")
+                .font(.system(size: 12, weight: .bold, design: .rounded))
+                .foregroundColor(BrandColor.primary)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 5)
+                .background(Capsule().fill(BrandColor.primary.opacity(0.16)))
+
+            Spacer()
+
+            if currentPage < 2 {
+                Button("Skip") {
+                    complete()
+                }
+                .font(BrandFont.caption())
+                .foregroundColor(BrandColor.textSecondary)
+                .padding(.vertical, 4)
+                .padding(.horizontal, 8)
+            }
+        }
+    }
+
+    // MARK: - Slide 1: Live Lockscreen & Widget Sync
+
+    private var slide1View: some View {
+        VStack(spacing: 16) {
+            Spacer(minLength: 8)
+
+            // iPhone Lockscreen & Widget Mockup
+            VStack(spacing: 12) {
+                // Mock iPhone Bezel
+                VStack(spacing: 8) {
+                    // Clock
+                    Text("9:41")
+                        .font(.system(size: 44, weight: .semibold, design: .rounded))
+                        .foregroundColor(.white)
+                        .padding(.top, 12)
+
+                    // Widget Card
+                    VStack(spacing: 6) {
+                        HStack {
+                            Text("Our Canvas")
+                                .font(.system(size: 11, weight: .bold))
+                                .foregroundColor(.white.opacity(0.9))
+                            Spacer()
+                            HStack(spacing: 4) {
+                                Text("Synced to Widget")
+                                    .font(.system(size: 9, weight: .semibold))
+                                Circle()
+                                    .fill(Color.green)
+                                    .frame(width: 6, height: 6)
+                            }
+                            .foregroundColor(.white.opacity(0.85))
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Capsule().fill(Color.black.opacity(0.35)))
+                        }
+
+                        // Heart Doodle inside Widget
+                        ZStack {
+                            HeartDoodle()
+                                .trim(from: 0, to: slide1Progress)
+                                .stroke(
+                                    LinearGradient(colors: [Color(hex: 0xF43F5E), Color(hex: 0xFB7185)], startPoint: .topLeading, endPoint: .bottomTrailing),
+                                    style: StrokeStyle(lineWidth: 4, lineCap: .round, lineJoin: .round)
+                                )
+                                .shadow(color: Color(hex: 0xF43F5E).opacity(0.6), radius: 6)
+                                .frame(width: 80, height: 65)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 75)
+                    }
+                    .padding(12)
+                    .background(
+                        RoundedRectangle(cornerRadius: 16)
+                            .fill(Color(hex: 0x1A2238).opacity(0.9))
+                            .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.white.opacity(0.12), lineWidth: 1))
+                    )
+                    .padding(.horizontal, 16)
+
+                    // Animated Notification Banner
+                    if showNotificationBanner {
+                        HStack(spacing: 8) {
+                            Text("💌")
+                                .font(.system(size: 16))
+                            VStack(alignment: .leading, spacing: 1) {
+                                Text("Sarah just drew you a doodle!")
+                                    .font(.system(size: 10, weight: .bold))
+                                    .foregroundColor(.white)
+                                Text("Tap to view live on your lock screen")
+                                    .font(.system(size: 8))
+                                    .foregroundColor(.white.opacity(0.7))
+                            }
+                            Spacer()
+                        }
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(
+                            RoundedRectangle(cornerRadius: 12)
+                                .fill(Color.black.opacity(0.6))
+                                .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.white.opacity(0.15), lineWidth: 0.8))
+                        )
+                        .padding(.horizontal, 16)
+                        .transition(.move(edge: .top).combined(with: .opacity))
                     }
                 }
-
-                Spacer().frame(height: 24)
-
-                PrimaryGradientButton(title: OnboardingView.pages[currentPage].cta) {
-                    advance()
-                }
-                .padding(.horizontal, 24)
-                .padding(.bottom, 12)
-
-                if currentPage < OnboardingView.pages.count - 1 {
-                    Button("Skip") { complete() }
-                        .font(BrandFont.caption())
-                        .foregroundColor(BrandColor.textSecondary)
-                        .padding(.bottom, 24)
-                } else {
-                    Spacer().frame(height: 24)
-                }
+                .frame(width: 250, height: 260)
+                .background(
+                    RoundedRectangle(cornerRadius: 28)
+                        .fill(Color.black.opacity(0.55))
+                        .overlay(RoundedRectangle(cornerRadius: 28).stroke(Color.white.opacity(0.18), lineWidth: 1.5))
+                )
+                .shadow(color: BrandColor.primary.opacity(0.2), radius: 16, x: 0, y: 8)
             }
 
-            // Page counter chip.
-            VStack {
-                HStack {
-                    Spacer()
-                    Text("\(currentPage + 1) / \(OnboardingView.pages.count)")
-                        .font(.system(size: 12, weight: .bold, design: .rounded))
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 5)
-                        .background(Capsule().fill(BrandColor.surface.opacity(0.8)))
-                        .foregroundColor(BrandColor.textPrimary)
-                        .padding(.trailing, 20)
-                        .padding(.top, 8)
+            Spacer(minLength: 8)
+
+            // Text section
+            VStack(spacing: 6) {
+                Text("LIVE LOCKSCREEN & WIDGET SYNC")
+                    .font(.system(size: 11, weight: .heavy, design: .rounded))
+                    .foregroundColor(BrandColor.primary)
+                    .tracking(1.4)
+
+                Text("Draw it here, it appears there.")
+                    .font(.system(size: 24, weight: .bold, design: .rounded))
+                    .foregroundStyle(BrandGradient.primary)
+                    .multilineTextAlignment(.center)
+
+                Text("Draw together with your partner or best friend. When you send a doodle, it lights up on their widget instantly.")
+                    .font(.system(size: 13))
+                    .foregroundColor(BrandColor.textSecondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 28)
+            }
+
+            Spacer(minLength: 12)
+
+            PrimaryGradientButton(title: "Continue") {
+                withAnimation { currentPage = 1 }
+            }
+            .padding(.horizontal, 24)
+        }
+    }
+
+    private func animateSlide1() {
+        slide1Progress = 0
+        showNotificationBanner = false
+        withAnimation(.easeInOut(duration: 1.8)) {
+            slide1Progress = 1.0
+        }
+        withAnimation(.spring(response: 0.5, dampingFraction: 0.7).delay(1.2)) {
+            showNotificationBanner = true
+        }
+    }
+
+    // MARK: - Slide 2: Creative Freedom & Stroke Replay
+
+    private var slide2View: some View {
+        VStack(spacing: 16) {
+            Spacer(minLength: 8)
+
+            // Preview Canvas Card
+            VStack(spacing: 10) {
+                // Interactive Brush Chips
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(BrushChoice.allCases) { brush in
+                            Button {
+                                selectedBrush = brush
+                                animateSlide2()
+                            } label: {
+                                Text(brush.rawValue)
+                                    .font(.system(size: 11, weight: .bold))
+                                    .padding(.horizontal, 10)
+                                    .padding(.vertical, 6)
+                                    .background(selectedBrush == brush ? BrandColor.primary : Color.white.opacity(0.08))
+                                    .foregroundColor(selectedBrush == brush ? .black : .white)
+                                    .cornerRadius(8)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    .padding(.horizontal, 14)
                 }
-                Spacer()
+
+                // Rendered Canvas Preview
+                ZStack {
+                    RoundedRectangle(cornerRadius: 16)
+                        .fill(Color(hex: 0x11162B))
+                        .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.white.opacity(0.1), lineWidth: 1))
+
+                    brushPreviewDoodle(for: selectedBrush, progress: slide2Progress)
+
+                    // "▶ Replay Stroke" button
+                    VStack {
+                        Spacer()
+                        HStack {
+                            Spacer()
+                            Button {
+                                animateSlide2()
+                            } label: {
+                                HStack(spacing: 4) {
+                                    Image(systemName: "play.fill")
+                                        .font(.system(size: 10))
+                                    Text("Replay Stroke")
+                                        .font(.system(size: 10, weight: .bold))
+                                }
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 5)
+                                .background(Capsule().fill(Color.white.opacity(0.18)))
+                                .foregroundColor(.white)
+                            }
+                            .padding(10)
+                        }
+                    }
+                }
+                .frame(width: 270, height: 180)
+            }
+
+            Spacer(minLength: 8)
+
+            // Text section
+            VStack(spacing: 6) {
+                Text("CREATIVE FREEDOM")
+                    .font(.system(size: 11, weight: .heavy, design: .rounded))
+                    .foregroundColor(BrandColor.secondary)
+                    .tracking(1.4)
+
+                Text("Magical brushes & Stroke Replay.")
+                    .font(.system(size: 24, weight: .bold, design: .rounded))
+                    .foregroundStyle(BrandGradient.primary)
+                    .multilineTextAlignment(.center)
+
+                Text("Unleash your creativity with Neon, Fire, Rainbow and Pastel brushes. Watch your favorite memories re-draw stroke by stroke.")
+                    .font(.system(size: 13))
+                    .foregroundColor(BrandColor.textSecondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 28)
+            }
+
+            Spacer(minLength: 12)
+
+            PrimaryGradientButton(title: "Try Drawing") {
+                withAnimation { currentPage = 2 }
+            }
+            .padding(.horizontal, 24)
+        }
+    }
+
+    private func animateSlide2() {
+        slide2Progress = 0
+        withAnimation(.easeInOut(duration: 1.4)) {
+            slide2Progress = 1.0
+        }
+    }
+
+    @ViewBuilder
+    private func brushPreviewDoodle(for brush: BrushChoice, progress: CGFloat) -> some View {
+        switch brush {
+        case .neon:
+            RainbowDoodle()
+                .trim(from: 0, to: progress)
+                .stroke(Color(hex: 0x3BD8D2), style: StrokeStyle(lineWidth: 6, lineCap: .round))
+                .shadow(color: Color(hex: 0x3BD8D2).opacity(0.8), radius: 8)
+                .frame(width: 140, height: 90)
+
+        case .fire:
+            HeartDoodle()
+                .trim(from: 0, to: progress)
+                .stroke(
+                    LinearGradient(colors: [Color.orange, Color.red], startPoint: .top, endPoint: .bottom),
+                    style: StrokeStyle(lineWidth: 6, lineCap: .round)
+                )
+                .shadow(color: Color.orange.opacity(0.8), radius: 8)
+                .frame(width: 110, height: 90)
+
+        case .rainbow:
+            StarDoodle()
+                .trim(from: 0, to: progress)
+                .stroke(
+                    LinearGradient(colors: [.red, .yellow, .green, .cyan, .purple], startPoint: .leading, endPoint: .trailing),
+                    style: StrokeStyle(lineWidth: 5, lineCap: .round)
+                )
+                .frame(width: 110, height: 110)
+
+        case .pastel:
+            HeartDoodle()
+                .trim(from: 0, to: progress)
+                .stroke(Color(hex: 0xC4B5FD), style: StrokeStyle(lineWidth: 8, lineCap: .round))
+                .shadow(color: Color(hex: 0xF1EBFD).opacity(0.6), radius: 5)
+                .frame(width: 110, height: 90)
+        }
+    }
+
+    // MARK: - Slide 3: Your Turn (Live Mini-Canvas)
+
+    private var slide3View: some View {
+        VStack(spacing: 12) {
+            // Text Header
+            VStack(spacing: 4) {
+                Text("YOUR TURN")
+                    .font(.system(size: 11, weight: .heavy, design: .rounded))
+                    .foregroundColor(BrandColor.primary)
+                    .tracking(1.4)
+
+                Text("Touch & draw right now!")
+                    .font(.system(size: 24, weight: .bold, design: .rounded))
+                    .foregroundStyle(BrandGradient.primary)
+
+                Text("Experience our silky stroke engine before you start.")
+                    .font(.system(size: 13))
+                    .foregroundColor(BrandColor.textSecondary)
+            }
+            .padding(.top, 4)
+
+            // Live Interactive Mini-Canvas
+            VStack(spacing: 8) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 18)
+                        .fill(Color(hex: 0x10162B))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 18)
+                                .strokeBorder(
+                                    LinearGradient(colors: [BrandColor.primary.opacity(0.4), BrandColor.secondary.opacity(0.4)], startPoint: .topLeading, endPoint: .bottomTrailing),
+                                    lineWidth: 1.5
+                                )
+                        )
+
+                    // Render lines
+                    Canvas { context, _ in
+                        for stroke in strokes {
+                            drawStroke(stroke, in: &context)
+                        }
+                        if let active = activeStroke {
+                            drawStroke(active, in: &context)
+                        }
+                    }
+
+                    // Empty prompt or Instant feedback badge
+                    if strokes.isEmpty && activeStroke == nil {
+                        VStack(spacing: 6) {
+                            Image(systemName: "hand.draw.fill")
+                                .font(.system(size: 26))
+                                .foregroundColor(BrandColor.primary.opacity(0.6))
+                            Text("Draw with your finger ✨")
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundColor(.white.opacity(0.4))
+                        }
+                    } else {
+                        VStack {
+                            HStack {
+                                Text("Awesome! ✨")
+                                    .font(.system(size: 10, weight: .bold))
+                                    .foregroundColor(.black)
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 3)
+                                    .background(Capsule().fill(BrandColor.primary))
+                                    .shadow(color: BrandColor.primary.opacity(0.4), radius: 4)
+                                    .padding(10)
+                                Spacer()
+                                Button("Clear") {
+                                    strokes.removeAll()
+                                    activeStroke = nil
+                                }
+                                .font(.system(size: 10, weight: .bold))
+                                .foregroundColor(.white.opacity(0.7))
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                                .background(Capsule().fill(Color.white.opacity(0.12)))
+                                .padding(10)
+                            }
+                            Spacer()
+                        }
+                    }
+                }
+                .frame(height: 220)
+                .padding(.horizontal, 16)
+                // Touch Interception via DragGesture so drawing doesn't trigger TabView horizontal page swiping
+                .gesture(
+                    DragGesture(minimumDistance: 0)
+                        .onChanged { value in
+                            if activeStroke == nil {
+                                activeStroke = DrawStroke(points: [value.location], color: miniPadColors[selectedColorIndex])
+                            } else {
+                                activeStroke?.points.append(value.location)
+                            }
+                        }
+                        .onEnded { value in
+                            if var current = activeStroke {
+                                current.points.append(value.location)
+                                strokes.append(current)
+                                activeStroke = nil
+                            }
+                        }
+                )
+
+                // Color Palette
+                HStack(spacing: 14) {
+                    ForEach(0..<miniPadColors.count, id: \.self) { index in
+                        Button {
+                            selectedColorIndex = index
+                        } label: {
+                            Circle()
+                                .fill(miniPadColors[index])
+                                .frame(width: 26, height: 26)
+                                .overlay(
+                                    Circle()
+                                        .stroke(Color.white, lineWidth: selectedColorIndex == index ? 2.5 : 0)
+                                )
+                                .shadow(color: miniPadColors[index].opacity(selectedColorIndex == index ? 0.6 : 0), radius: 4)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(.vertical, 4)
+            }
+
+            Spacer(minLength: 8)
+
+            // Primary Start button
+            PrimaryGradientButton(title: "Start Our Canvas ✨") {
+                complete()
+            }
+            .padding(.horizontal, 24)
+        }
+    }
+
+    private func drawStroke(_ stroke: DrawStroke, in context: inout GraphicsContext) {
+        guard stroke.points.count >= 2 else { return }
+        var path = Path()
+        path.move(to: stroke.points[0])
+        for pt in stroke.points.dropFirst() {
+            path.addLine(to: pt)
+        }
+
+        // Glow pass
+        context.stroke(
+            path,
+            with: .color(stroke.color.opacity(0.5)),
+            style: StrokeStyle(lineWidth: 9, lineCap: .round, lineJoin: .round)
+        )
+        // Core pass
+        context.stroke(
+            path,
+            with: .color(stroke.color),
+            style: StrokeStyle(lineWidth: 4, lineCap: .round, lineJoin: .round)
+        )
+    }
+
+    // MARK: - Bottom Bar (Indicators)
+
+    private var bottomBar: some View {
+        HStack(spacing: 8) {
+            ForEach(0..<3, id: \.self) { index in
+                Capsule()
+                    .fill(index == currentPage ? BrandColor.primary : Color.white.opacity(0.2))
+                    .frame(width: index == currentPage ? 24 : 8, height: 7)
+                    .animation(.spring(response: 0.35, dampingFraction: 0.8), value: currentPage)
             }
         }
-        .background(BrandBackground())
-        .onAppear { startAnimations() }
-        .onChange(of: currentPage) { _ in restartReveal() }
+        .padding(.top, 4)
     }
 
-    private func startAnimations() {
-        restartReveal()
-        withAnimation(.linear(duration: 12).repeatForever(autoreverses: true)) {
-            driftPhase = 1
-        }
-    }
+    // MARK: - Completion
 
-    private func restartReveal() {
-        revealProgress = 0
-        withAnimation(.easeInOut(duration: 2.2)) {
-            revealProgress = 1
-        }
-    }
-
-    private func advance() {
-        if currentPage >= OnboardingView.pages.count - 1 {
-            complete()
-        } else {
-            currentPage += 1
-        }
-    }
-
-    /// Completion: user-scoped storage marks onboarding done (version maintained by
-    /// the router) and `action_create` drops the user into the create flow.
     private func complete() {
         if let uid = router.currentUID ?? Auth.auth().currentUser?.uid {
             var store = UserScopedStore(uid: uid)
             store.postOnboardingCreate = true
             store.onboardingCompleted = true
         }
+        isOnboardingCompleted = true
+        UserDefaults.standard.set(true, forKey: "isOnboardingCompleted")
         UserDefaults.standard.set(true, forKey: "onboarding_completed")
         router.completeOnboarding()
     }
 }
 
-// MARK: - Self-drawing doodle (trim reveal + glow/aura)
+// MARK: - Floating Particles Background
 
-struct SelfDrawingDoodle: View {
-    let kind: OnboardingView.DoodleKind
-    let progress: CGFloat
+struct FloatingParticlesView: View {
+    @State private var animate = false
+
+    private let particles: [(CGFloat, CGFloat, CGFloat, Color)] = [
+        (0.12, 0.18, 4, Color(hex: 0x3BD8D2)),
+        (0.85, 0.22, 6, Color(hex: 0xAB5EFA)),
+        (0.25, 0.70, 5, Color(hex: 0xFBBF24)),
+        (0.78, 0.65, 4, Color(hex: 0xF43F5E)),
+        (0.48, 0.12, 3, Color.white),
+        (0.90, 0.88, 5, Color(hex: 0x3BD8D2)),
+        (0.15, 0.90, 4, Color(hex: 0xAB5EFA)),
+    ]
 
     var body: some View {
-        let trimmed = doodleShape.trim(from: 0, to: progress)
-        return ZStack {
-            // Aura pass.
-            trimmed
-                .stroke(BrandColor.primary.opacity(0.18), lineWidth: 26)
-                .blur(radius: 14)
-
-            // Neon glow pass.
-            trimmed
-                .stroke(BrandColor.primary.opacity(0.5), lineWidth: 12)
-                .blur(radius: 5)
-
-            // Core stroke.
-            trimmed
-                .stroke(style: StrokeStyle(lineWidth: 7, lineCap: .round, lineJoin: .round))
-                .foregroundStyle(BrandGradient.primary)
+        GeometryReader { proxy in
+            ForEach(0..<particles.count, id: \.self) { i in
+                let (xFrac, yFrac, size, color) = particles[i]
+                Circle()
+                    .fill(color.opacity(0.35))
+                    .frame(width: size, height: size)
+                    .position(
+                        x: proxy.size.width * xFrac,
+                        y: proxy.size.height * yFrac + (animate ? 10 : -10)
+                    )
+            }
         }
-        .padding(28)
-    }
-
-    private var doodleShape: AnyShape {
-        switch kind {
-        case .heart: return AnyShape(HeartDoodle())
-        case .star: return AnyShape(StarDoodle())
-        case .rainbow: return AnyShape(RainbowDoodle())
-        case .smiley: return AnyShape(SmileyDoodle())
+        .allowsHitTesting(false)
+        .onAppear {
+            withAnimation(.easeInOut(duration: 4).repeatForever(autoreverses: true)) {
+                animate = true
+            }
         }
     }
 }
+
+// MARK: - Shapes for Onboarding Doodles
 
 struct HeartDoodle: Shape {
     func path(in rect: CGRect) -> Path {
@@ -259,7 +695,7 @@ struct RainbowDoodle: Shape {
                        startAngle: .degrees(180),
                        endAngle: .degrees(0),
                        clockwise: false)
-            path.addPath(arc.strokedPath(StrokeStyle(lineWidth: 8, lineCap: .round)))
+            path.addPath(arc.strokedPath(StrokeStyle(lineWidth: 6, lineCap: .round)))
             _ = index
         }
         return path
@@ -274,31 +710,6 @@ struct SmileyDoodle: Shape {
         path.addEllipse(in: CGRect(x: center.x - radius, y: center.y - radius,
                                    width: radius * 2, height: radius * 2))
         return path
-    }
-}
-
-// MARK: - Drifting emoji background
-
-struct DriftingEmojiBackground: View {
-    let emojis: [String]
-    let phase: CGFloat
-
-    private let layout: [(CGFloat, CGFloat, CGFloat)] = [
-        (0.08, 0.12, 44), (0.85, 0.08, 36), (0.16, 0.74, 38), (0.9, 0.68, 46),
-        (0.45, 0.05, 30), (0.7, 0.9, 34), (0.05, 0.45, 28), (0.55, 0.88, 26),
-    ]
-
-    var body: some View {
-        GeometryReader { geometry in
-            ForEach(Array(layout.enumerated()), id: \.offset) { index, item in
-                Text(emojis[index % emojis.count])
-                    .font(.system(size: item.2))
-                    .opacity(0.16)
-                    .position(x: geometry.size.width * item.0,
-                              y: geometry.size.height * item.1 + phase * 24 * CGFloat(index.isMultiple(of: 2) ? 1 : -1))
-            }
-        }
-        .allowsHitTesting(false)
     }
 }
 

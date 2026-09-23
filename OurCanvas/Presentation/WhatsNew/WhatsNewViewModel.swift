@@ -6,7 +6,7 @@ import FirebaseAuth
 /// CURRENT_VERSION bump re-arms the red dot per account across devices via the
 /// shared `users/{uid}.whatsNewSeenVersion` field.
 enum WhatsNewContent {
-    static let CURRENT_VERSION = 8
+    static let CURRENT_VERSION = 9
 
     enum Tag: String, CaseIterable {
         case play = "Play"
@@ -14,6 +14,7 @@ enum WhatsNewContent {
         case together = "Together"
         case pro = "Pro"
         case streaks = "Streaks"
+        case experience = "Experience"
     }
 
     struct Card: Identifiable, Equatable {
@@ -27,6 +28,7 @@ enum WhatsNewContent {
 
     /// Current content/order from the Android production spec (A6.1).
     static let cards: [Card] = [
+        Card(emoji: "🎨", title: "Interactive Onboarding & Solo Practice Canvas", subtitle: "Explore Our Canvas with our all-new interactive onboarding tour, live widget sync preview, and a solo Practice Canvas to test all brushes before creating a circle!", tag: .experience, isNew: true),
         Card(emoji: "⏰", title: "Streak Expiration Alerts", subtitle: "Never accidentally lose your flame! Get a warning notification 60 minutes before midnight if your active drawing streak is about to break.", tag: .streaks, isNew: true),
         Card(emoji: "🔥", title: "Streak Recovery", subtitle: "Never lose your streak again — recover missed days within 48h using coins.", tag: .play, isNew: true),
         Card(emoji: "🪙", title: "Coins & Letter Hints", subtitle: "Earn coins with rewarded ads and reveal tricky letters slot by slot.", tag: .play, isNew: true),

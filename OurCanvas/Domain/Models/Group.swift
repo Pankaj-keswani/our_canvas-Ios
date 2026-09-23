@@ -44,6 +44,15 @@ extension Group {
             "createdAt": createdAtMs,
         ]
     }
+
+    /// Dedicated representation for solo practice drawing mode.
+    static let practice = Group(
+        groupId: "practice",
+        groupName: "Practice Sketchbook",
+        createdBy: "practice",
+        inviteCode: "PRACTICE",
+        memberIds: ["practice"]
+    )
 }
 
 /// Owner-only circle rename rules (UI + write validation, Android parity).
