@@ -34,6 +34,7 @@ class AppDelegate: NSObject, UIApplicationDelegate {
     }
 
     func applicationDidBecomeActive(_ application: UIApplication) {
+        UserActivityService.shared.recordActivityIfNeeded()
         StreakWarningManager.shared.scheduleOrVerifyStreakWarning()
     }
 }

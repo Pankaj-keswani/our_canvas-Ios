@@ -337,7 +337,15 @@ struct MembersSheet: View {
                 Section {
                     ForEach(members) { member in
                         HStack(spacing: 12) {
-                            MemberAvatar(uid: member.uid.isEmpty ? "user" : member.uid, size: 40)
+                            ZStack(alignment: .bottomTrailing) {
+                                MemberAvatar(uid: member.uid.isEmpty ? "user" : member.uid, size: 40)
+                                if UserActivityFormatter.isOnline(lastActiveAt: member.lastActiveAt) {
+                                    Circle()
+                                        .fill(Color.green)
+                                        .frame(width: 10, height: 10)
+                                        .overlay(Circle().stroke(Color.white, lineWidth: 2))
+                                }
+                            }
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(member.displayName.isEmpty ? "Circle member" : member.displayName)
                                     .font(.subheadline.weight(.semibold))
@@ -345,6 +353,10 @@ struct MembersSheet: View {
                                     .font(.caption)
                                     .foregroundColor(.secondary)
                             }
+                            Spacer()
+                            Text(UserActivityFormatter.format(lastActiveAt: member.lastActiveAt))
+                                .font(.caption2)
+                                .foregroundColor(UserActivityFormatter.isOnline(lastActiveAt: member.lastActiveAt) ? .green : .secondary)
                         }
                     }
                 } header: {

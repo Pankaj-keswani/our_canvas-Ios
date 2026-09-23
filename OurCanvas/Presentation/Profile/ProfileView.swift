@@ -179,6 +179,39 @@ struct ProfileView: View {
             }
             .padding()
 
+            Divider().padding(.leading, 48)
+
+            HStack {
+                Image(systemName: "clock.badge.checkmark.fill")
+                    .foregroundColor(.white)
+                    .frame(width: 32, height: 32)
+                    .background(BrandColor.primary)
+                    .cornerRadius(8)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Last Activity")
+                        .font(.subheadline)
+                    Text(UserActivityFormatter.format(lastActiveAt: viewModel.currentUserProfile?.lastActiveAt ?? Date()))
+                        .font(.caption)
+                        .foregroundColor(UserActivityFormatter.isOnline(lastActiveAt: viewModel.currentUserProfile?.lastActiveAt) ? .green : .secondary)
+                }
+                Spacer()
+                if UserActivityFormatter.isOnline(lastActiveAt: viewModel.currentUserProfile?.lastActiveAt) {
+                    HStack(spacing: 4) {
+                        Circle()
+                            .fill(Color.green)
+                            .frame(width: 8, height: 8)
+                        Text("Online")
+                            .font(.caption2.weight(.bold))
+                            .foregroundColor(.green)
+                    }
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(Color.green.opacity(0.12))
+                    .clipShape(Capsule())
+                }
+            }
+            .padding()
+
             if let error = viewModel.hideEmailError {
                 Text(error)
                     .font(.caption)

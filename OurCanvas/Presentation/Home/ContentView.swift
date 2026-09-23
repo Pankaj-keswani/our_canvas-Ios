@@ -27,6 +27,7 @@ struct ContentView: View {
                 // Foreground flush is the PRIMARY retry path (iOS background limits).
                 OfflineQueueService.shared.flushForCurrentUser(reason: "foreground")
                 StreakWarningManager.shared.scheduleOrVerifyStreakWarning()
+                UserActivityService.shared.recordActivityIfNeeded()
             }
         }
     }

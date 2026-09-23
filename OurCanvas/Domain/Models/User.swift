@@ -18,6 +18,7 @@ struct User: Identifiable {
     var currentStreak: Int = 0
     var longestStreak: Int = 0
     var lastActiveDate: String = ""
+    var lastActiveAt: Date? = nil
     var drawingCount: Int = 0
     var favoriteCount: Int = 0
     var groupsJoinedCount: Int = 0
@@ -94,6 +95,7 @@ extension User {
         user.currentStreak = FieldCast.int(data["currentStreak"]) ?? 0
         user.longestStreak = FieldCast.int(data["longestStreak"]) ?? 0
         user.lastActiveDate = FieldCast.string(data["lastActiveDate"]) ?? ""
+        user.lastActiveAt = TimestampCast.date(data["lastActiveAt"]) ?? TimestampCast.date(data["lastSeenAt"])
         user.drawingCount = FieldCast.int(data["drawingCount"]) ?? 0
         user.favoriteCount = FieldCast.int(data["favoriteCount"]) ?? 0
         user.groupsJoinedCount = FieldCast.int(data["groupsJoinedCount"]) ?? 0
@@ -141,6 +143,7 @@ extension User {
             "currentStreak": 0,
             "longestStreak": 0,
             "lastActiveDate": "",
+            "lastActiveAt": FieldValue.serverTimestamp(),
             "drawingCount": 0,
             "favoriteCount": 0,
             "groupsJoinedCount": 0,
@@ -224,5 +227,15 @@ enum UserFieldUpdate {
 
     static func lastLoginDate(_ value: String) -> [String: Any] {
         ["lastLoginDate": value]
+    }
+
+    static func lastActive(day: String? = nil) -> [String: Any] {
+        var fields: [String: Any] = [
+            "lastActiveAt": FieldValue.serverTimestamp()
+        ]
+        if let day, !day.isEmpty {
+            fields["lastActiveDate"] = day
+        }
+        return fields
     }
 }
