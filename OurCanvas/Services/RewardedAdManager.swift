@@ -8,8 +8,8 @@ import Combine
 @MainActor
 final class RewardedAdManager: ObservableObject {
     static let shared = RewardedAdManager()
-    static let REWARDED_AD_UNIT_ID = "ca-app-pub-7815261539621331/7008584794"
-    static var adUnitId: String { REWARDED_AD_UNIT_ID }
+    nonisolated static let REWARDED_AD_UNIT_ID = "ca-app-pub-7815261539621331/7008584794"
+    nonisolated static var adUnitId: String { REWARDED_AD_UNIT_ID }
 
     @Published var isPresentingAd = false
     @Published var adCountdown: Int = 5

@@ -1,6 +1,7 @@
 import XCTest
 @testable import OurCanvas
 
+@MainActor
 final class AdMobProductionTests: XCTestCase {
 
     // MARK: - AdMob Production Identifiers
