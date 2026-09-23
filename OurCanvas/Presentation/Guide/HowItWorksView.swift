@@ -28,7 +28,7 @@ struct HowItWorksView: View {
                 .padding(.bottom, 32)
             }
         }
-        .background(BrandColor.background.ignoresSafeArea())
+        .background(BrandGradient.background.ignoresSafeArea())
         .navigationTitle("How Our Canvas Works")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
