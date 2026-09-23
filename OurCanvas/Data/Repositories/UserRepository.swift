@@ -424,7 +424,7 @@ class UserRepository: ObservableObject, UserProfileProviding {
 
     // MARK: - Cache
 
-    private func cachedUser(_ uid: String) -> User? {
+    func cachedUser(_ uid: String) -> User? {
         guard let entry = memoryCache[uid] else { return nil }
         guard Date().timeIntervalSince(entry.fetchedAt) < Self.profileCacheTTL else {
             memoryCache[uid] = nil
