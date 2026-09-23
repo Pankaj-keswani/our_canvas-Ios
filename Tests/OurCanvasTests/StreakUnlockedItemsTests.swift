@@ -145,7 +145,8 @@ final class StreakUnlockedItemsTests: XCTestCase {
         let image = StrokeRenderer.renderComposite(
             background: bg,
             strokes: [stroke],
-            elements: [],
+            stickers: [],
+            texts: [],
             canvasSize: CGSize(width: 400, height: 400),
             outputPixels: 200
         )
